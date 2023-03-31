@@ -6,6 +6,7 @@
 //===========================================================================//
 
 #include "cbase.h"
+#include "client_render_handle.h"
 #include "hud.h"
 #include "in_buttons.h"
 #include "beamdraw.h"
@@ -13,7 +14,10 @@
 #include "clienteffectprecachesystem.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
+#include "materialsystem/imaterialsystem.h"
+#include "mathlib/mathlib.h"
 #include "tier0/memdbgon.h"
+#include "tier2/tier2.h"
 
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectGravityGun )
 CLIENTEFFECT_MATERIAL( "sprites/physbeam" )
@@ -47,6 +51,9 @@ public:
 	int						m_active;
 	int						m_glueTouching;
 	int						m_viewModelIndex;
+
+	matrix3x4_t z;
+	const matrix3x4_t& RenderableToWorldTransform() { return z; }
 };
 
 
@@ -105,6 +112,7 @@ END_RECV_TABLE()
 C_BeamQuadratic::C_BeamQuadratic()
 {
 	m_pOwner = NULL;
+	m_hRenderHandle = INVALID_CLIENT_RENDER_HANDLE;
 }
 
 void C_BeamQuadratic::Update( C_BaseEntity *pOwner )
@@ -124,6 +132,7 @@ void C_BeamQuadratic::Update( C_BaseEntity *pOwner )
 	else if ( !m_active && m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE )
 	{
 		ClientLeafSystem()->RemoveRenderable( m_hRenderHandle );
+		m_hRenderHandle = INVALID_CLIENT_RENDER_HANDLE;
 	}
 }
 
@@ -159,7 +168,8 @@ int	C_BeamQuadratic::DrawModel( int )
 	}
 
 	float scrollOffset = gpGlobals->curtime - (int)gpGlobals->curtime;
-	materials->Bind( pMat );
+	CMatRenderContextPtr pRenderContext( materials );
+	pRenderContext->Bind( pMat );
 	DrawBeamQuadratic( points[0], points[1], points[2], 13, color, scrollOffset );
 	return 1;
 }

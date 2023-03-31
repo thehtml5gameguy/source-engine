@@ -212,6 +212,7 @@ BEGIN_DATADESC( CPortal_Player )
 END_DATADESC()
 
 ConVar sv_regeneration_wait_time ("sv_regeneration_wait_time", "1.0", FCVAR_REPLICATED );
+ConVar sv_regeneration_enable("sv_regeneration_enable", "0", FCVAR_REPLICATED | FCVAR_ARCHIVE);
 
 const char *g_pszChellModel = "models/player/chell.mdl";
 const char *g_pszPlayerModel = g_pszChellModel;
@@ -625,7 +626,7 @@ void CPortal_Player::PostThink( void )
 	SetLocalAngles( angles );
 
 	// Regenerate heath after 3 seconds
-	if ( IsAlive() && GetHealth() < GetMaxHealth() )
+	if ( IsAlive() && GetHealth() < GetMaxHealth() && sv_regeneration_enable.GetBool() )
 	{
 		// Color to overlay on the screen while the player is taking damage
 		color32 hurtScreenOverlay = {64,0,0,64};

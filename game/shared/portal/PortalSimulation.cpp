@@ -197,10 +197,10 @@ CPortalSimulator::~CPortalSimulator( void )
 
 
 
-void CPortalSimulator::MoveTo( const Vector &ptCenter, const QAngle &angles )
+bool CPortalSimulator::MoveTo( const Vector &ptCenter, const QAngle &angles )
 {
 	if( (m_InternalData.Placement.ptCenter == ptCenter) && (m_InternalData.Placement.qAngles == angles) ) //not actually moving at all
-		return;
+		return true;
 
 	CREATEDEBUGTIMER( functionTimer );
 
@@ -318,7 +318,11 @@ void CPortalSimulator::MoveTo( const Vector &ptCenter, const QAngle &angles )
 #endif
 
 	CreatePolyhedrons();	
-	CreateAllCollision();
+	if (!CreateAllCollision())
+	{
+		ClearLocalCollision();
+		return false;
+	}
 #ifndef CLIENT_DLL
 	CreateAllPhysics();
 #endif
@@ -345,6 +349,8 @@ void CPortalSimulator::MoveTo( const Vector &ptCenter, const QAngle &angles )
 	STOPDEBUGTIMER( functionTimer );
 	DECREMENTTABSPACING();
 	DEBUGTIMERONLY( DevMsg( 2, "[PSDT:%d] %sCPortalSimulator::MoveTo() FINISH: %fms\n", GetPortalSimulatorGUID(), TABSPACING, functionTimer.GetDuration().GetMillisecondsF() ); );
+
+	return true;
 }
 
 
@@ -1603,7 +1609,7 @@ void CPortalSimulator::ClearLinkedEntities( void )
 #endif //#ifndef CLIENT_DLL
 
 
-void CPortalSimulator::CreateAllCollision( void )
+bool CPortalSimulator::CreateAllCollision( void )
 {
 	CREATEDEBUGTIMER( functionTimer );
 
@@ -1611,25 +1617,30 @@ void CPortalSimulator::CreateAllCollision( void )
 	DEBUGTIMERONLY( DevMsg( 2, "[PSDT:%d] %sCPortalSimulator::CreateAllCollision() START\n", GetPortalSimulatorGUID(), TABSPACING ); );
 	INCREMENTTABSPACING();
 
-	CreateLocalCollision();
+	if (!CreateLocalCollision()) 
+	{
+		return false;
+	}
 	CreateLinkedCollision();
 
 	STOPDEBUGTIMER( functionTimer );
 	DECREMENTTABSPACING();
 	DEBUGTIMERONLY( DevMsg( 2, "[PSDT:%d] %sCPortalSimulator::CreateAllCollision() FINISH: %fms\n", GetPortalSimulatorGUID(), TABSPACING, functionTimer.GetDuration().GetMillisecondsF() ); );
+
+	return true;
 }
 
 
 
-void CPortalSimulator::CreateLocalCollision( void )
+bool CPortalSimulator::CreateLocalCollision( void )
 {
 	AssertMsg( m_bLocalDataIsReady, "Portal simulator attempting to create local collision before being placed." );
 
 	if( m_CreationChecklist.bLocalCollisionGenerated )
-		return;
+		return true;
 
 	if( IsCollisionGenerationEnabled() == false )
-		return;
+		return true;
 
 	DEBUGTIMERONLY( s_iPortalSimulatorGUID = GetPortalSimulatorGUID() );
 
@@ -1666,7 +1677,10 @@ void CPortalSimulator::CreateLocalCollision( void )
 			
 			Assert( Representation.pCollide == NULL );
 			Representation.pCollide = ConvertPolyhedronsToCollideable( &pPolyhedronsBase[Representation.PolyhedronGroup.iStartIndex], Representation.PolyhedronGroup.iNumPolyhedrons );
-			Assert( Representation.pCollide != NULL );
+			if (Representation.pCollide == NULL) {
+				m_InternalData.Simulation.Static.World.Brushes.pCollideable = NULL;
+				return false;
+			}
 		}
 	}
 	m_InternalData.Simulation.Static.World.StaticProps.bCollisionExists = true;
@@ -1731,6 +1745,7 @@ void CPortalSimulator::CreateLocalCollision( void )
 	DEBUGTIMERONLY( DevMsg( 2, "[PSDT:%d] %sCPortalSimulator::CreateLocalCollision() FINISH: %fms\n", GetPortalSimulatorGUID(), TABSPACING, functionTimer.GetDuration().GetMillisecondsF() ); );
 
 	m_CreationChecklist.bLocalCollisionGenerated = true;
+	return true;
 }
 
 
@@ -1943,7 +1958,11 @@ void CPortalSimulator::CreatePolyhedrons( void )
 				ICollideable *pProp = StaticProps[i];
 
 				CPolyhedron *PolyhedronArray[1024];
-				int iPolyhedronCount = g_StaticCollisionPolyhedronCache.GetStaticPropPolyhedrons( pProp, PolyhedronArray, 1024 );
+				int iPolyhedronCount = 0;
+				if (pProp->GetSolid() != SOLID_NONE)
+				{
+					iPolyhedronCount = g_StaticCollisionPolyhedronCache.GetStaticPropPolyhedrons(pProp, PolyhedronArray, 1024);
+				}
 
 				StaticPropPolyhedronGroups_t indices;
 				indices.iStartIndex = m_InternalData.Simulation.Static.World.StaticProps.Polyhedrons.Count();
@@ -2629,7 +2648,7 @@ static CPhysCollide *ConvertPolyhedronsToCollideable( CPolyhedron **pPolyhedrons
 	{
 		pConvexes[iConvexCount] = physcollision->ConvexFromConvexPolyhedron( *pPolyhedrons[i] );
 
-		Assert( pConvexes[iConvexCount] != NULL );
+		// Assert( pConvexes[iConvexCount] != NULL );
 		
 		if( pConvexes[iConvexCount] )
 			++iConvexCount;		

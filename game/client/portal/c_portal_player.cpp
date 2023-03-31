@@ -33,8 +33,8 @@
 #endif
 
 
-#define REORIENTATION_RATE 120.0f
-#define REORIENTATION_ACCELERATION_RATE 400.0f
+ConVar cl_reorient_rate( "cl_reorient_rate", "1000", FCVAR_ARCHIVE, "Rate at which the player reorients to the camera" );
+ConVar cl_reorient_acceleration_rate( "cl_reorient_acceleration_rate", "5000", FCVAR_ARCHIVE, "Acceleration rate at which the player reorients to the camera" );
 
 #define ENABLE_PORTAL_EYE_INTERPOLATION_CODE
 
@@ -668,7 +668,7 @@ void C_Portal_Player::FixTeleportationRoll( void )
 
 	if ( bForcePitchReorient )
 	{
-		m_fReorientationRate = REORIENTATION_RATE * ( ( bOnGround ) ? ( 2.0f ) : ( 1.0f ) );
+		m_fReorientationRate = cl_reorient_rate.GetFloat() * ( ( bOnGround ) ? ( 2.0f ) : ( 1.0f ) );
 	}
 	else
 	{
@@ -682,26 +682,26 @@ void C_Portal_Player::FixTeleportationRoll( void )
 
 	if ( vCurrentUp.z < 0.75f )
 	{
-		m_fReorientationRate += gpGlobals->frametime * REORIENTATION_ACCELERATION_RATE;
+		m_fReorientationRate += gpGlobals->frametime * cl_reorient_acceleration_rate.GetFloat();
 
 		// Upright faster if on the ground
-		float fMaxReorientationRate = REORIENTATION_RATE * ( ( bOnGround ) ? ( 2.0f ) : ( 1.0f ) );
+		float fMaxReorientationRate = cl_reorient_rate.GetFloat() * ( ( bOnGround ) ? ( 2.0f ) : ( 1.0f ) );
 		if ( m_fReorientationRate > fMaxReorientationRate )
 			m_fReorientationRate = fMaxReorientationRate;
 	}
 	else
 	{
-		if ( m_fReorientationRate > REORIENTATION_RATE * 0.5f )
+		if ( m_fReorientationRate > cl_reorient_rate.GetFloat() * 0.5f )
 		{
-			m_fReorientationRate -= gpGlobals->frametime * REORIENTATION_ACCELERATION_RATE;
-			if ( m_fReorientationRate < REORIENTATION_RATE * 0.5f )
-				m_fReorientationRate = REORIENTATION_RATE * 0.5f;
+			m_fReorientationRate -= gpGlobals->frametime * cl_reorient_acceleration_rate.GetFloat();
+			if ( m_fReorientationRate < cl_reorient_rate.GetFloat() * 0.5f )
+				m_fReorientationRate = cl_reorient_rate.GetFloat() * 0.5f;
 		}
-		else if ( m_fReorientationRate < REORIENTATION_RATE * 0.5f )
+		else if ( m_fReorientationRate < cl_reorient_rate.GetFloat() * 0.5f )
 		{
-			m_fReorientationRate += gpGlobals->frametime * REORIENTATION_ACCELERATION_RATE;
-			if ( m_fReorientationRate > REORIENTATION_RATE * 0.5f )
-				m_fReorientationRate = REORIENTATION_RATE * 0.5f;
+			m_fReorientationRate += gpGlobals->frametime * cl_reorient_acceleration_rate.GetFloat();
+			if ( m_fReorientationRate > cl_reorient_rate.GetFloat() * 0.5f )
+				m_fReorientationRate = cl_reorient_rate.GetFloat() * 0.5f;
 		}
 	}
 
