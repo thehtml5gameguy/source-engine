@@ -68,6 +68,10 @@ public:
 	virtual bool PassesTriggerFilters(CBaseEntity *pOther);
 	virtual void StartTouch(CBaseEntity *pOther);
 	virtual void EndTouch(CBaseEntity *pOther);
+
+	virtual void OnStartTouchAll(CBaseEntity *pOther);
+	virtual void OnEndTouchAll(CBaseEntity *pOther);
+
 	bool IsTouching( CBaseEntity *pOther );
 
 	CBaseEntity *GetTouchedEntityOfType( const char *sClassName );

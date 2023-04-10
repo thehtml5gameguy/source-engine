@@ -700,18 +700,21 @@ void CWeaponGravityGun::EffectUpdate( void )
 	start = pOwner->Weapon_ShootPosition();
 	Vector end = start + forward * 4096;
 
+#ifdef PORTAL
+	Ray_t rayPath;
+	CTraceFilterSkipTwoEntities m_filterBeams( NULL, NULL, COLLISION_GROUP_NONE );
+	m_filterBeams.SetPassEntity( pOwner );
+	rayPath.Init( start, end );
+
+	g_bBulletPortalTrace = true; // Why is this a global???
+	UTIL_Portal_TraceRay( rayPath, MASK_SHOT, &m_filterBeams, &tr );
+	g_bBulletPortalTrace = false;
+#else
 	UTIL_TraceLine( start, end, MASK_SHOT, pOwner, COLLISION_GROUP_NONE, &tr );
+#endif
+
 	end = tr.endpos;
 	float distance = tr.fraction * 4096;
-	if ( tr.fraction != 1 )
-	{
-		// too close to the player, drop the object
-		if ( distance < 36 )
-		{
-			DetachObject();
-			return;
-		}
-	}
 
 	if ( m_hObject == NULL && tr.DidHitNonWorldEntity() )
 	{
@@ -782,26 +785,43 @@ void CWeaponGravityGun::EffectUpdate( void )
 		// If we had a filter for tracelines, we could simply filter both ents and start from "start"
 		Vector awayfromPlayer = start + forward * 24;
 
+#ifdef PORTAL
+		Ray_t rayPath;
+		CTraceFilterSkipTwoEntities m_filterBeams( NULL, NULL, COLLISION_GROUP_NONE );
+		m_filterBeams.SetPassEntity( pOwner );
+		rayPath.Init( start, awayfromPlayer );
+
+		g_bBulletPortalTrace = true; // Why is this a global???
+		UTIL_Portal_TraceRay(rayPath, MASK_SOLID, &m_filterBeams, &tr);
+#else	
 		UTIL_TraceLine( start, awayfromPlayer, MASK_SOLID, pOwner, COLLISION_GROUP_NONE, &tr );
+#endif
 		if ( tr.fraction == 1 )
 		{
+#ifdef PORTAL
+			rayPath.Init( awayfromPlayer, newPosition );
+			m_filterBeams.SetPassEntity( pObject );
+			UTIL_Portal_TraceRay(rayPath, MASK_SOLID, &m_filterBeams, &tr);
+#else
 			UTIL_TraceLine( awayfromPlayer, newPosition, MASK_SOLID, pObject, COLLISION_GROUP_NONE, &tr );
+#endif
 			Vector dir = tr.endpos - newPosition;
 			float distance = VectorNormalize(dir);
 			float maxDist = m_gravCallback.m_maxVel * gpGlobals->frametime;
 			if ( distance >  maxDist )
 			{
 				newPosition += dir * maxDist;
+			}
+			else
+			{
+				newPosition = tr.endpos;
+			}
 		}
 		else
 		{
 			newPosition = tr.endpos;
 		}
-		}
-		else
-		{
-			newPosition = tr.endpos;
-		}
+		g_bBulletPortalTrace = false;
 
 		CreatePelletAttraction( phys_gunglueradius.GetFloat(), pObject );
 			
@@ -1300,7 +1320,18 @@ void CWeaponGravityGun::SecondaryAttack( void )
 	Vector end = start + forward * 4096;
 
 	trace_t tr;
+#ifdef PORTAL
+	Ray_t rayPath;
+	CTraceFilterSkipTwoEntities m_filterBeams( NULL, NULL, COLLISION_GROUP_NONE );
+	m_filterBeams.SetPassEntity( pOwner );
+	rayPath.Init( start, end );
+
+	g_bBulletPortalTrace = true; // Why is this a global???
+	UTIL_Portal_TraceRay(rayPath, MASK_SHOT, &m_filterBeams, &tr);
+	g_bBulletPortalTrace = false;
+#else
 	UTIL_TraceLine( start, end, MASK_SHOT, pOwner, COLLISION_GROUP_NONE, &tr );
+#endif
 	if ( tr.fraction == 1.0 || (tr.surface.flags & SURF_SKY) )
 		return;
 

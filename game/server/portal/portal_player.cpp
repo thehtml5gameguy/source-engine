@@ -368,7 +368,8 @@ void CPortal_Player::GiveAllItems( void )
 
 	GiveNamedItem( "weapon_bugbait" );
 
-	//GiveNamedItem( "weapon_physcannon" );
+	GiveNamedItem( "weapon_physgun" ); // Gives the old broken physgun for testing
+
 	CWeaponPortalgun *pPortalGun = static_cast<CWeaponPortalgun*>( GiveNamedItem( "weapon_portalgun" ) );
 
 	if ( !pPortalGun )
@@ -409,7 +410,7 @@ void CPortal_Player::Spawn(void)
 	RemoveEffects( EF_NODRAW );
 	StopObserverMode();
 
-	GiveDefaultItems();
+	// GiveDefaultItems();
 
 	m_nRenderFX = kRenderNormal;
 

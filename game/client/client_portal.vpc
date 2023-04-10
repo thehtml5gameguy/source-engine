@@ -192,6 +192,12 @@ $Project "Client (Portal)"
 				$File	"$SRCDIR\game\shared\portal\weapon_portalgun_shared.h"
 			}
 		}
+
+		$Folder	"Portal re2"
+		{
+			$File	"portal\remake\c_env_portal_laser.cpp"
+			$File	"portal2\c_prop_floor_button.cpp"
+		}
 	}
 }
 

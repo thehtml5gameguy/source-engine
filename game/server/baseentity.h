@@ -1174,6 +1174,9 @@ public:
 	virtual void	ModifyOrAppendCriteria( AI_CriteriaSet& set );
 	void			AppendContextToCriteria( AI_CriteriaSet& set, const char *prefix = "" );
 	void			DumpResponseCriteria( void );
+
+protected:
+	string_t		m_ModelName;
 	
 private:
 	friend class CAI_Senses;
@@ -1683,8 +1686,6 @@ private:
 
 	CNetworkHandleForDerived( CBaseEntity, m_hGroundEntity );
 	float			m_flGroundChangeTime; // Time that the ground entity changed
-	
-	string_t		m_ModelName;
 
 	// Velocity of the thing we're standing on (world space)
 	CNetworkVarForDerived( Vector, m_vecBaseVelocity );

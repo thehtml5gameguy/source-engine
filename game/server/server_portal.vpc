@@ -354,5 +354,16 @@ $Project "Server (Portal)"
 				$File	"$SRCDIR\game\shared\portal\weapon_portalgun_shared.h"
 			}
 		}
+
+		$Folder	"Portal re2"
+		{
+			$File	"portal\remake\env_portal_laser.cpp"
+			$File	"portal\remake\prop_laser_catcher.cpp"
+			$File	"portal\remake\prop_weightedcube.cpp"
+
+			$File	"portal2\prop_testchamber_door.cpp"
+			$File	"portal2\prop_floor_button.cpp"
+			$File	"portal2\prop_button.cpp"
+		}
 	}
 }
