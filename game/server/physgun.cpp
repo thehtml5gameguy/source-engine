@@ -702,8 +702,7 @@ void CWeaponGravityGun::EffectUpdate( void )
 
 #ifdef PORTAL
 	Ray_t rayPath;
-	CTraceFilterSkipTwoEntities m_filterBeams( NULL, NULL, COLLISION_GROUP_NONE );
-	m_filterBeams.SetPassEntity( pOwner );
+	CTraceFilterSkipTwoEntities m_filterBeams( pOwner, NULL, COLLISION_GROUP_NONE );
 	rayPath.Init( start, end );
 
 	g_bBulletPortalTrace = true; // Why is this a global???
@@ -787,12 +786,12 @@ void CWeaponGravityGun::EffectUpdate( void )
 
 #ifdef PORTAL
 		Ray_t rayPath;
-		CTraceFilterSkipTwoEntities m_filterBeams( NULL, NULL, COLLISION_GROUP_NONE );
-		m_filterBeams.SetPassEntity( pOwner );
+		CTraceFilterSkipTwoEntities m_filterBeams( pOwner, NULL, COLLISION_GROUP_NONE );
 		rayPath.Init( start, awayfromPlayer );
 
 		g_bBulletPortalTrace = true; // Why is this a global???
 		UTIL_Portal_TraceRay(rayPath, MASK_SOLID, &m_filterBeams, &tr);
+		g_bBulletPortalTrace = false;
 #else	
 		UTIL_TraceLine( start, awayfromPlayer, MASK_SOLID, pOwner, COLLISION_GROUP_NONE, &tr );
 #endif
@@ -801,16 +800,18 @@ void CWeaponGravityGun::EffectUpdate( void )
 #ifdef PORTAL
 			rayPath.Init( awayfromPlayer, newPosition );
 			m_filterBeams.SetPassEntity( pObject );
+			g_bBulletPortalTrace = true; // Why is this a global???
 			UTIL_Portal_TraceRay(rayPath, MASK_SOLID, &m_filterBeams, &tr);
+			g_bBulletPortalTrace = false;
 #else
 			UTIL_TraceLine( awayfromPlayer, newPosition, MASK_SOLID, pObject, COLLISION_GROUP_NONE, &tr );
 #endif
 			Vector dir = tr.endpos - newPosition;
-			float distance = VectorNormalize(dir);
+			float distance = VectorNormalize(tr.endpos);
 			float maxDist = m_gravCallback.m_maxVel * gpGlobals->frametime;
-			if ( distance >  maxDist )
+			if ( distance > maxDist )
 			{
-				newPosition += dir * maxDist;
+				newPosition += tr.endpos * maxDist;
 			}
 			else
 			{
@@ -821,7 +822,6 @@ void CWeaponGravityGun::EffectUpdate( void )
 		{
 			newPosition = tr.endpos;
 		}
-		g_bBulletPortalTrace = false;
 
 		CreatePelletAttraction( phys_gunglueradius.GetFloat(), pObject );
 			
@@ -1322,8 +1322,7 @@ void CWeaponGravityGun::SecondaryAttack( void )
 	trace_t tr;
 #ifdef PORTAL
 	Ray_t rayPath;
-	CTraceFilterSkipTwoEntities m_filterBeams( NULL, NULL, COLLISION_GROUP_NONE );
-	m_filterBeams.SetPassEntity( pOwner );
+	CTraceFilterSkipTwoEntities m_filterBeams( pOwner, NULL, COLLISION_GROUP_NONE );
 	rayPath.Init( start, end );
 
 	g_bBulletPortalTrace = true; // Why is this a global???

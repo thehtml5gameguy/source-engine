@@ -306,7 +306,17 @@ void CBaseHLBludgeonWeapon::Swing( int bIsSecondary )
 	forward = pOwner->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT, GetRange() );
 
 	Vector swingEnd = swingStart + forward * GetRange();
+#ifdef PORTAL
+	Ray_t rayPath;
+	CTraceFilterSkipTwoEntities m_filterBeams( pOwner, NULL, COLLISION_GROUP_NONE );
+	rayPath.Init( swingStart, swingEnd );
+	g_bBulletPortalTrace = true; // Why is this a global???
+	UTIL_Portal_TraceRay( rayPath, MASK_SHOT_HULL, &m_filterBeams, &traceHit );
+	g_bBulletPortalTrace = false;
+#else
 	UTIL_TraceLine( swingStart, swingEnd, MASK_SHOT_HULL, pOwner, COLLISION_GROUP_NONE, &traceHit );
+#endif // PORTAL
+
 	Activity nHitActivity = ACT_VM_HITCENTER;
 
 	// Like bullets, bludgeon traces have to trace against triggers.

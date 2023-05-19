@@ -231,6 +231,8 @@ CBasePlayer* UTIL_GetLocalPlayer( void );
 // get the local player on a listen server
 CBasePlayer *UTIL_GetListenServerHost( void );
 
+CBasePlayer *UTIL_GetNearestPlayer(CBaseEntity *pLooker, bool needsLOS = false);
+
 CBasePlayer* UTIL_PlayerByUserId( int userID );
 CBasePlayer* UTIL_PlayerByName( const char *name ); // not case sensitive
 

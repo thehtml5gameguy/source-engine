@@ -221,24 +221,28 @@ protected:
 //-----------------------------------------------------------------------------
 void UTIL_PhyscannonTraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, CBaseEntity *pTraceOwner, trace_t *pTrace )
 {
+	Ray_t ray;
 	// Default to HL2 vanilla
 	if ( hl2_episodic.GetBool() == false )
 	{
 		CTraceFilterNoOwnerTest filter( pTraceOwner, COLLISION_GROUP_NONE );
-		UTIL_TraceLine( vecAbsStart, vecAbsEnd, (MASK_SHOT|CONTENTS_GRATE), &filter, pTrace );
+		ray.Init( vecAbsStart, vecAbsEnd );
+		UTIL_Portal_TraceRay(ray, (MASK_SHOT|CONTENTS_GRATE), &filter, pTrace);
 		return;
 	}
 
 	// First, trace against entities
 	CTraceFilterPhyscannon filter( pTraceOwner, COLLISION_GROUP_NONE );
-	UTIL_TraceLine( vecAbsStart, vecAbsEnd, (MASK_SHOT|CONTENTS_GRATE), &filter, pTrace );
+	ray.Init( vecAbsStart, vecAbsEnd );
+	UTIL_Portal_TraceRay(ray, (MASK_SHOT|CONTENTS_GRATE), &filter, pTrace);
 
 	// If we've hit something, test again to make sure no brushes block us
 	if ( pTrace->m_pEnt != NULL )
 	{
 		trace_t testTrace;
 		CTraceFilterOnlyBrushes brushFilter( COLLISION_GROUP_NONE );
-		UTIL_TraceLine( pTrace->startpos, pTrace->endpos, MASK_SHOT, &brushFilter, &testTrace );
+		ray.Init( pTrace->startpos, pTrace->endpos );
+		UTIL_Portal_TraceRay(ray, MASK_SHOT, &brushFilter, &testTrace);
 
 		// If we hit a brush, replace the trace with that result
 		if ( testTrace.fraction < 1.0f || testTrace.startsolid || testTrace.allsolid )

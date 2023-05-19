@@ -657,6 +657,44 @@ CBasePlayer *UTIL_GetListenServerHost( void )
 	return UTIL_PlayerByIndex( 1 );
 }
 
+//
+// Returns nearest player. 
+// Control with boolean if line of sight is needed.
+// Taken from https://developer.valvesoftware.com/wiki/GetLocalPlayer
+CBasePlayer *UTIL_GetNearestPlayer(CBaseEntity *pLooker, bool bNeedsLOS)
+{
+	float flFinalDistance = 99999.0f;
+	CBasePlayer *pFinalPlayer = NULL;
+
+	for (int i = 1; i < gpGlobals->maxClients; i++)
+	{
+		CBasePlayer *pPlayer = UTIL_PlayerByIndex(i);
+
+		if (!pPlayer){
+			continue;
+		}
+
+		float flDistance = (pPlayer->GetAbsOrigin() - pLooker->GetAbsOrigin()).LengthSqr();
+
+		if (flDistance < flFinalDistance)
+		{
+			if (bNeedsLOS)
+			{
+				//Check if the player is visible to the entity (only brushes obstruct vision)
+				if (!pLooker->FVisible(pPlayer, MASK_SOLID_BRUSHONLY))
+				{
+					continue;
+				}				
+			}
+			
+			pFinalPlayer = pPlayer;
+			flFinalDistance = flDistance;
+		}
+	}
+
+	return pFinalPlayer;
+}
+
 
 //--------------------------------------------------------------------------------------------------------------
 /**
