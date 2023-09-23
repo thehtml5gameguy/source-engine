@@ -9,7 +9,7 @@
 
 #include "cbase.h"
 #include "props.h"
-#include "portal2/paint_enum.h"
+#include "paint/paint_enum.h"
 
 enum WeightedCubeType_e
 {

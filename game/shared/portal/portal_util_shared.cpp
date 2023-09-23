@@ -6,6 +6,9 @@
 //=============================================================================//
 
 #include "cbase.h"
+#include "const.h"
+#include "paint/paint_enum.h"
+#include "paint_color_manager.h"
 #include "portal_util_shared.h"
 #include "prop_portal_shared.h"
 #include "portal_shareddefs.h"
@@ -1687,6 +1690,26 @@ bool UTIL_Portal_EntityIsInPortalHole( const CProp_Portal *pPortal, CBaseEntity 
 		vPortalRight, PORTAL_HALF_WIDTH + 1.0f, vPortalUp, PORTAL_HALF_HEIGHT + 1.0f );
 }
 
+bool UTIL_IsPaintableSurface( const csurface_t *surface )
+{
+	return surface->flags & 0x2000 == 0 ; // CEG_SURF_NO_PAINT_FLAG
+}
+
+// TODO: Implement
+PaintPowerType UTIL_Paint_TracePower(CBaseEntity *pBrushEntity,Vector contactPoint,Vector *vContactNormal)
+{
+	if(!pBrushEntity->IsBSPModel())
+		return NO_POWER;
+
+	/*
+	pBrushEntity->WorldToEntitySpace(contactPoint, &contactPointEnt);
+	if(pBrushEntity->IsEFlagSet(EF_BONEMERGE))
+	{
+		pBrushEntity->CalcAbsolutePosition();
+	}
+	*/
+	return NO_POWER;
+}
 
 #ifdef CLIENT_DLL
 void UTIL_TransformInterpolatedAngle( CInterpolatedVar< QAngle > &qInterped, matrix3x4_t matTransform, bool bSkipNewest )

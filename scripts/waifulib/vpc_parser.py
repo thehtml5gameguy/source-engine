@@ -123,6 +123,7 @@ def parse_vpcs( env ,vpcs, basedir ):
 
 		for i in l:
 			if i == '': continue
+			if '//' in i: continue
 
 			s = match_statement.search(i)
 			if s and not compute_statement(env.DEFINES+defines, s.group(0)):
@@ -147,6 +148,7 @@ def parse_vpcs( env ,vpcs, basedir ):
 		l=ret[key]
 
 		for i in l:
+			if '//' in i: continue
 			if '-$File' in i and '.h"' not in i:
 				for k in i.split(';'):
 					k = k.replace('$SRCDIR', basedir)

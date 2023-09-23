@@ -6,9 +6,18 @@
 
 #include "cbase.h"
 #include "datamap.h"
+#include "dt_common.h"
+#include "dt_send.h"
+#include "mathlib/vector.h"
+#include "networkvar.h"
 #include "physicsshadowclone.h"
 #include "prop_weightedcube.h"
 #include "prop_laser_catcher.h"
+#include "util.h"
+#include <cstddef>
+
+ConVar sv_portal_laser_high_precision_update ( "portal_laser_high_precision_update", "0.03f", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
+ConVar sv_portal_laser_normal_update ( "portal_laser_normal_update", "0.05f", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
 
 class CPortalLaser : public CBaseAnimating
 {
@@ -22,29 +31,46 @@ public:
 	virtual void Spawn( void );
 	virtual void Precache( void );
 
+	void TurnOn( void );
+	void TurnOff( void );
+
 private:
 	void InputToggle( inputdata_t &inputData );
 	void InputTurnOn( inputdata_t &inputData );
 	void InputTurnOff( inputdata_t &inputData );
 
-	void LaserThink( void );
+	void StrikeThink( void );
 
-	CTraceFilterSkipTwoEntities m_filterBeams;
+	CPortalLaser* m_pParentLaser;
+	CPortalLaser* m_pChildLaser;
+
+	Vector m_vecNearestSoundSource[33];
+	CBaseEntity* m_pSoundProxy[33];
+	CSoundPatch* m_pAmbientSound[33];
+	//CInfoPlacementHelper* m_pPlacementHelper;
+	int m_iLaserAttachment;
 
 	bool m_bStartOff;
+	bool m_bFromReflectedCube;
+	bool m_bGlowInitialized;
+	bool m_bAutoAimEnabled;
+	bool m_bNoPlacementHelper;
 
-	CNetworkVar( bool, m_bActive);
-	CNetworkVar( int, m_nSiteHalo );
-	CNetworkVar( int, m_iAttachmentId );
-	CNetworkVar( QAngle, m_vecCurrentAngles );
+	CNetworkHandle( CBaseEntity, m_hReflector);
+	CNetworkVector( m_vStartPoint );
+	CNetworkVector( m_vEndPoint );
+	CNetworkVar( bool, m_bLaserOn );
+	CNetworkVar( bool, m_bIsLethal );
+	CNetworkVar( bool, m_bIsAutoAiming );
+	CNetworkVar( bool, m_bShouldSpark );
+	CNetworkVar( bool, m_bUseParentDir );
+	CNetworkVector( m_angParentAngles );
+	QAngle m_angPortalExitAngles;
 };
 
 // Start of our data description for the class
 BEGIN_DATADESC( CPortalLaser )
 	
-	// Save/restore our active state
-	DEFINE_FIELD( m_bActive, FIELD_BOOLEAN ),
-
 	DEFINE_KEYFIELD( m_bStartOff, FIELD_BOOLEAN, "StartState" ),
 	DEFINE_KEYFIELD( m_nSkin, FIELD_INTEGER, "skin" ),
 
@@ -53,23 +79,32 @@ BEGIN_DATADESC( CPortalLaser )
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOn", InputTurnOn ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "TurnOff", InputTurnOff ),
 
-	DEFINE_THINKFUNC( LaserThink ),
+	DEFINE_THINKFUNC( StrikeThink ),
 
 END_DATADESC()
 
 IMPLEMENT_SERVERCLASS_ST(CPortalLaser, DT_PortalLaser)
-	SendPropBool( SENDINFO( m_bActive )),
-	SendPropInt( SENDINFO( m_nSiteHalo ) ),
-	SendPropInt( SENDINFO( m_iAttachmentId ), 2 ),
-	SendPropVector( SENDINFO( m_vecCurrentAngles ) ), 
+	SendPropEHandle( SENDINFO( m_hReflector ) ),
+	SendPropVector( SENDINFO( m_vStartPoint ), 32, SPROP_COORD ),
+	SendPropVector( SENDINFO( m_vEndPoint ), 32, SPROP_COORD ),
+	SendPropBool( SENDINFO( m_bLaserOn ) ), 
+	SendPropBool( SENDINFO( m_bIsLethal ) ), 
+	SendPropBool( SENDINFO( m_bIsAutoAiming ) ), 
+	SendPropBool( SENDINFO( m_bShouldSpark ) ), 
+	SendPropBool( SENDINFO( m_bUseParentDir ) ),
+	SendPropVector( SENDINFO( m_angParentAngles ) ),
 END_SEND_TABLE()
 
 LINK_ENTITY_TO_CLASS( env_portal_laser, CPortalLaser );
 
 CPortalLaser::CPortalLaser( void )
-	: m_filterBeams( NULL, NULL, COLLISION_GROUP_DEBRIS )
+	: m_pParentLaser( NULL ),
+	m_pChildLaser( NULL ),
+	m_bFromReflectedCube( false ),
+	m_bAutoAimEnabled( true ),
+	m_bNoPlacementHelper( false )
 {
-	m_filterBeams.SetPassEntity( this );
+	//  IPortalLaserAutoList::IPortalLaserAutoList((IPortalLaserAutoList *)0x9215c9,(bool)((char)this + -0x38));
 }
 
 //-----------------------------------------------------------------------------
@@ -77,39 +112,86 @@ CPortalLaser::CPortalLaser( void )
 //-----------------------------------------------------------------------------
 void CPortalLaser::Precache( void )
 {
-	PrecacheModel( STRING( GetModelName() ) );
-	PrecacheModel("effects/redlaser1.vmt");
-	m_nSiteHalo = PrecacheModel("sprites/light_glow03.vmt");
+	if (m_bIsLethal)
+		CBaseEntity::PrecacheScriptSound("LaserGreen.BeamLoop");
+	else
+		CBaseEntity::PrecacheScriptSound("Laser.BeamLoop");
 
-	BaseClass::Precache();
+	CBaseEntity::PrecacheScriptSound("Flesh.LaserBurn");
+	CBaseEntity::PrecacheScriptSound("Player.PainSmall");
+	PrecacheParticleSystem("laser_start_glow");
+	PrecacheParticleSystem("reflector_start_glow");
+
+	if (m_bFromReflectedCube)
+	    return;
+
+	const char* cModelName = m_ModelName.ToCStr();
+
+	if(cModelName == nullptr || *cModelName == '\0')
+		cModelName = "models/props/laser_emitter.mdl";
+
+	CBaseEntity::PrecacheModel(cModelName);
 }
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Sets up the entity's initial state
 //-----------------------------------------------------------------------------
 void CPortalLaser::Spawn( void )
 {
-	Precache();
+	m_bGlowInitialized = false;
+	if(!m_bFromReflectedCube)
+	{
+		SetSolid( SOLID_VPHYSICS );
 
-	m_vecCurrentAngles = GetAbsAngles();
-
-	SetModel( STRING( GetModelName() ) );
-	SetSolid( SOLID_VPHYSICS );
-	CreateVPhysics();
-
-	m_iAttachmentId = LookupAttachment("laser_attachment");
-	if ( !m_iAttachmentId )
-	{ // TODO: Figure out what the first string is.
-		Warning("env_portal_laser \'%s\' : model named \'%s\' does not have attachment \'laser_attachment\'\n", "TODO", STRING(GetModelName()));
-		return;
+		m_iLaserAttachment = LookupAttachment("laser_attachment");
+		if ( !m_iLaserAttachment )
+		{
+			Warning("env_portal_laser \'%s\' : model named \'%s\' does not have attachment \'laser_attachment\'\n", STRING(GetEntityName()), STRING(GetModelName()));
+			return;
+		}
 	}
 
-	m_bActive = !m_bStartOff;
+	for( int i; i <= 33; i++ )
+	{
+		m_pAmbientSound[i] = nullptr;
+	}
+
+	//CreateHelperEntities();
+
+	if(!m_bStartOff)
+		TurnOn();
 
 	SetFadeDistance(-1.0f, 0.0);
+}
 
-	SetThink( &CPortalLaser::LaserThink );
-	SetNextThink( gpGlobals->curtime );
+void CPortalLaser::TurnOn( void )
+{
+	if(!m_bLaserOn)
+		m_bLaserOn = true;
+
+	if(m_pfnThink != nullptr)
+		return;
+
+	float fTime;
+	if(m_bFromReflectedCube)
+		fTime = sv_portal_laser_normal_update.GetFloat();
+	else
+		fTime = sv_portal_laser_high_precision_update.GetFloat();
+
+	SetThink(&CPortalLaser::StrikeThink);
+	SetNextThink(gpGlobals->curtime + fTime);
+}
+void CPortalLaser::TurnOff( void )
+{
+	if(m_bLaserOn)
+		m_bLaserOn = false;
+
+	// TODO: Implement
+	//RemoveChildLaser();
+	//TornOffGlow();
+	//TornOffLaserSound();
+	SetThink(nullptr);
 }
 
 //-----------------------------------------------------------------------------
@@ -117,27 +199,33 @@ void CPortalLaser::Spawn( void )
 //-----------------------------------------------------------------------------
 void CPortalLaser::InputToggle( inputdata_t &inputData )
 {
-	m_bActive = !m_bActive;
+	if(m_bLaserOn)
+		TurnOff();
+	else
+		TurnOn();
+
+	return;
 }
 void CPortalLaser::InputTurnOn( inputdata_t &inputData )
 {
-	m_bActive = true;
+	TurnOn();
 }
 void CPortalLaser::InputTurnOff( inputdata_t &inputData )
 {
-	m_bActive = false;
+	TurnOff();
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Toggle the laser on and off
+// TODO: Not how it should be implemented!
 //-----------------------------------------------------------------------------
-void CPortalLaser::LaserThink( void )
+void CPortalLaser::StrikeThink( void )
 {
-	if(m_bActive)
+	if(m_bLaserOn)
 	{
 		Ray_t rayDmg;
 		Vector vForward;
-		AngleVectors( m_vecCurrentAngles, &vForward, NULL, NULL );
+		AngleVectors( GetAbsAngles(), &vForward, NULL, NULL );
 		Vector vEndPoint = EyePosition() + vForward*8192;
 		rayDmg.Init( EyePosition(), vEndPoint );
 		rayDmg.m_IsRay = true;
@@ -159,7 +247,7 @@ void CPortalLaser::LaserThink( void )
 				dmgInfo.SetDamageType( DMG_ENERGYBEAM );
 				traceDmg.m_pEnt->TakeDamage( dmgInfo );
 			}
-			else if( FClassnameIs( traceDmg.m_pEnt, "prop_weighted_cube" ) /* UTIL_IsReflectiveCube( traceDmg.m_pEnt ) */ )
+			else if( FClassnameIs( traceDmg.m_pEnt, "prop_weighted_cube" ) && UTIL_IsReflectiveCube( traceDmg.m_pEnt ) )
 			{
 				//Set the cube to activate
 				// TODO: Make lasers come from cubes
@@ -179,6 +267,4 @@ void CPortalLaser::LaserThink( void )
 			}
 		}
 	}
-
-	SetNextThink( gpGlobals->curtime + 0.1f );
 }

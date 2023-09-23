@@ -9,6 +9,7 @@
 
 #include "cbase.h"
 #include "beam_shared.h"
+#include "mathlib/vector.h"
 #include "portal_util_shared.h"
 
 class C_PortalLaser : public C_BaseAnimating
@@ -30,28 +31,45 @@ public:
 private:
 	CBeam *m_pBeam;
 	CTraceFilterSkipTwoEntities m_filterBeams;
-	QAngle m_vecCurrentAngles;
 
-	bool m_bActive;
 	int	m_nSiteHalo;
 	int m_iAttachmentId;
 
+	////////////
+	// True class members from pdb
+	//C_PortalBeamHelper m_beamHelper;
+	C_BaseEntity m_hReflector;
+	//CNewParticleEffect m_pSparkEffect;
+	Vector m_vStartPoint;
+	Vector m_vEndPoint;
+	bool m_bLaserOn;
+	bool m_bIsLethal;
+	bool m_bIsAutoAiming;
+	bool m_bShouldSpark;
+	bool m_bUseParentDir;
+
+	QAngle m_angParentAngles;
+	////////////
 };
 
 LINK_ENTITY_TO_CLASS( env_portal_laser, C_PortalLaser );
 IMPLEMENT_CLIENTCLASS_DT( C_PortalLaser, DT_PortalLaser, CPortalLaser )
-	RecvPropBool( RECVINFO( m_bActive ) ),
-	RecvPropInt( RECVINFO( m_nSiteHalo ) ),
-	RecvPropInt( RECVINFO( m_iAttachmentId ) ),
-	RecvPropVector( RECVINFO( m_vecCurrentAngles ) ),
+	RecvPropEHandle( RECVINFO( m_hReflector )),
+	RecvPropVector( RECVINFO( m_vStartPoint ) ),
+	RecvPropVector( RECVINFO( m_vEndPoint ) ),
+	RecvPropBool( RECVINFO( m_bLaserOn ) ), 
+	RecvPropBool( RECVINFO( m_bIsLethal ) ), 
+	RecvPropBool( RECVINFO( m_bIsAutoAiming ) ), 
+	RecvPropBool( RECVINFO( m_bShouldSpark ) ), 
+	RecvPropBool( RECVINFO( m_bUseParentDir ) ),
+	RecvPropVector( RECVINFO( m_angParentAngles ) ),
 END_RECV_TABLE()
 
 
 C_PortalLaser::C_PortalLaser( void )
-	: m_filterBeams( NULL, NULL, COLLISION_GROUP_DEBRIS )
+	: m_filterBeams( this, UTIL_PlayerByIndex( 1 ), COLLISION_GROUP_DEBRIS )
+	//m_pSparkEffect()
 {
-	m_filterBeams.SetPassEntity( this );
-	m_filterBeams.SetPassEntity2( UTIL_PlayerByIndex( 1 ) );
 }
 
 C_PortalLaser::~C_PortalLaser( void )
@@ -73,7 +91,7 @@ void C_PortalLaser::Spawn()
 
 void C_PortalLaser::ClientThink()
 {
-	if( m_bActive )
+	if( m_bLaserOn )
 		LaserOn();
 	else
 		LaserOff();
@@ -97,13 +115,16 @@ void C_PortalLaser::LaserOn()
 	QAngle angMuzzleDir;
 	GetAttachment( m_iAttachmentId, vecMuzzle, angMuzzleDir );
 	
-	QAngle angAimDir = m_vecCurrentAngles;
+	QAngle angAimDir = GetAbsAngles();
 	Vector vecAimDir;
 	AngleVectors ( angAimDir, &vecAimDir );
 
 	if(!m_pBeam)
 	{
-		m_pBeam = CBeam::BeamCreate("effects/redlaser1.vmt", 1);
+		if(m_bIsLethal)
+			m_pBeam = CBeam::BeamCreate("sprites/laserbeam.vmt", 2);
+		else
+			m_pBeam = CBeam::BeamCreate("sprites/purplelaser1.vmt", 32);;
 		m_pBeam->SetHaloTexture( m_nSiteHalo );
 		m_pBeam->SetColor( 255, 255, 255 );
 		m_pBeam->SetBrightness( 255 );
