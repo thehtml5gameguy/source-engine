@@ -20,15 +20,18 @@
 #include "physics_saverestore.h"
 #include "player_pickup.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-
+#include "portal_util_shared.h"
+#include "te.h"
+#include "prop_portal.h"
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-ConVar phys_gunmass("phys_gunmass", "200");
-ConVar phys_gunvel("phys_gunvel", "400");
-ConVar phys_gunforce("phys_gunforce", "5e5" );
-ConVar phys_guntorque("phys_guntorque", "100" );
+ConVar phys_gunmass("phys_gunmass", "20000");
+ConVar phys_gunvel("phys_gunvel", "4000000");
+ConVar phys_gunforce("phys_gunforce", "5e10" );
+ConVar phys_guntorque("phys_guntorque", "10000" );
 ConVar phys_gunglueradius("phys_gunglueradius", "128" );
+ConVar phys_gunrotationspeed("phys_gunrotationspeed", "10" );
 
 static int g_physgunBeam;
 #define PHYSGUN_BEAM_SPRITE		"sprites/physbeam.vmt"
@@ -46,7 +49,7 @@ public:
 	~CGravityPellet();
 	void Precache()
 	{
-		SetModelName( MAKE_STRING( "models/weapons/glueblob.mdl" ) );
+		SetModelName( MAKE_STRING( "models/weapons/w_bugbait.mdl" ) );
 		PrecacheModel( STRING( GetModelName() ) );
 		BaseClass::Precache();
 	}
@@ -422,6 +425,14 @@ IMotionEvent::simresult_e CGravControllerPoint::Simulate( IPhysicsMotionControll
 	else
 	{
 		// clamp future velocity to max speed
+		QAngle angles;
+		Vector origin;
+		pObject->GetShadowPosition(&origin, &angles);
+		VMatrix tmp = SetupMatrixOrgAngles(origin, angles);
+		Vector axis;
+		float angle;
+		RotationDeltaAxisAngle(angles, m_targetRotation, axis, angle);
+
 		Vector nextVel = delta + vel;
 		float nextSpeed = nextVel.Length();
 		if ( nextSpeed > m_maxVel )
@@ -443,7 +454,9 @@ IMotionEvent::simresult_e CGravControllerPoint::Simulate( IPhysicsMotionControll
 		pObject->CalculateForceOffset( delta, world, &accel, &angAccel );
 		
 		linear += accel;
-		angular += angAccel;
+		
+		//angular += angAccel;
+		angular = WorldToLocalRotation(tmp,axis,angle*invDeltaTime);
 	}
 	
 	return SIM_GLOBAL_ACCELERATION;
@@ -478,7 +491,7 @@ public:
 	virtual bool Holster( CBaseCombatWeapon *pSwitchingTo )
 	{
 		EffectDestroy();
-		return BaseClass::Holster();
+		return BaseClass::Holster( pSwitchingTo );
 	}
 
 	bool Reload( void );
@@ -561,6 +574,7 @@ private:
 	int			m_soundState;
 	CNetworkVar( int, m_viewModelIndex );
 	Vector		m_originalObjectPosition;
+	
 
 	CGravControllerPoint		m_gravCallback;
 	pelletlist_t m_activePellets[MAX_PELLETS];
@@ -570,6 +584,7 @@ private:
 	int			m_pelletHeld;
 	int			m_pelletAttract;
 	float		m_glueTime;
+	bool		m_bBlockPrimary;
 	CNetworkVar( bool, m_glueTouching );
 };
 
@@ -700,20 +715,22 @@ void CWeaponGravityGun::EffectUpdate( void )
 	start = pOwner->Weapon_ShootPosition();
 	Vector end = start + forward * 4096;
 
-#ifdef PORTAL
-	Ray_t rayPath;
-	CTraceFilterSkipTwoEntities m_filterBeams( pOwner, NULL, COLLISION_GROUP_NONE );
-	rayPath.Init( start, end );
-
-	g_bBulletPortalTrace = true; // Why is this a global???
-	UTIL_Portal_TraceRay( rayPath, MASK_SHOT, &m_filterBeams, &tr );
-	g_bBulletPortalTrace = false;
-#else
-	UTIL_TraceLine( start, end, MASK_SHOT, pOwner, COLLISION_GROUP_NONE, &tr );
-#endif
-
+	Ray_t ray;
+	ray.Init(start, end);
+	g_bBulletPortalTrace = true;
+	UTIL_Portal_TraceRay(ray, MASK_SHOT, pOwner, COLLISION_GROUP_NONE, &tr);
+	//UTIL_TraceLine(start, end, MASK_SHOT, pOwner, COLLISION_GROUP_NONE, &tr);
 	end = tr.endpos;
 	float distance = tr.fraction * 4096;
+	if ( tr.fraction != 1 )
+	{
+		// too close to the player, drop the object
+		if ( distance < 36 )
+		{
+			DetachObject();
+			return;
+		}
+	}
 
 	if ( m_hObject == NULL && tr.DidHitNonWorldEntity() )
 	{
@@ -726,18 +743,13 @@ void CWeaponGravityGun::EffectUpdate( void )
 		m_lastYaw = pOwner->EyeAngles().y;
 	}
 
-	// Add the incremental player yaw to the target transform
-	matrix3x4_t curMatrix, incMatrix, nextMatrix;
-	AngleMatrix( m_gravCallback.m_targetRotation, curMatrix );
-	AngleMatrix( QAngle(0,pOwner->EyeAngles().y - m_lastYaw,0), incMatrix );
-	ConcatTransforms( incMatrix, curMatrix, nextMatrix );
-	MatrixAngles( nextMatrix, m_gravCallback.m_targetRotation );
-	m_lastYaw = pOwner->EyeAngles().y;
-
+	CProp_Portal* pPortal = UTIL_Portal_TraceRay(ray, 0, pOwner, COLLISION_GROUP_NONE, &tr);
+	
+	
 	CBaseEntity *pObject = m_hObject;
 	if ( pObject )
 	{
-		if ( m_useDown )
+		/*if (m_useDown)
 		{
 			if ( pOwner->m_afButtonPressed & IN_USE )
 			{
@@ -750,11 +762,12 @@ void CWeaponGravityGun::EffectUpdate( void )
 			{
 				m_useDown = true;
 			}
-		}
+		}*/
 
-		if ( m_useDown )
+		if ( pOwner->m_nButtons & IN_USE )
 		{
-			pOwner->SetPhysicsFlag( PFLAG_DIROVERRIDE, true );
+			//pOwner->SetPhysicsFlag( PFLAG_DIROVERRIDE, true );
+			//pOwner->AddFlag(FL_ATCONTROLS);
 			if ( pOwner->m_nButtons & IN_FORWARD )
 			{
 				m_distance = UTIL_Approach( 1024, m_distance, gpGlobals->frametime * 100 );
@@ -763,6 +776,27 @@ void CWeaponGravityGun::EffectUpdate( void )
 			{
 				m_distance = UTIL_Approach( 40, m_distance, gpGlobals->frametime * 100 );
 			}
+			// Add the incremental player yaw to the target transform
+			matrix3x4_t curMatrix, incMatrix, nextMatrix, rightMatrix;
+			AngleMatrix(m_gravCallback.m_targetRotation, curMatrix);
+			float rotspeed = phys_gunrotationspeed.GetFloat() / 100.0;
+			AngleMatrix(QAngle(0, (float)(pOwner->m_sMousedx) * rotspeed, 0), incMatrix);
+			MatrixBuildRotationAboutAxis(right, (float)(pOwner->m_sMousedy) * rotspeed, rightMatrix);
+			ConcatTransforms(rightMatrix, incMatrix, incMatrix);
+			ConcatTransforms(incMatrix, curMatrix, nextMatrix);
+			MatrixAngles(nextMatrix, m_gravCallback.m_targetRotation);
+
+			/*VMatrix propmatrix;
+			MatrixFromAngles(m_gravCallback.m_targetRotation, propmatrix);
+			Vector right;
+			Vector up;
+			pOwner->EyeVectors((Vector *)0, &right, &up);
+			MatrixRotate(propmatrix, right, (float)(pOwner->m_sMousedy));
+			MatrixRotate(propmatrix, up, (float)(pOwner->m_sMousedx));
+			MatrixToAngles(propmatrix, m_gravCallback.m_targetRotation);*/
+			
+
+			
 		}
 
 		if ( pOwner->m_nButtons & IN_WEAPON1 )
@@ -784,38 +818,64 @@ void CWeaponGravityGun::EffectUpdate( void )
 		// If we had a filter for tracelines, we could simply filter both ents and start from "start"
 		Vector awayfromPlayer = start + forward * 24;
 
-#ifdef PORTAL
-		Ray_t rayPath;
-		CTraceFilterSkipTwoEntities m_filterBeams( pOwner, NULL, COLLISION_GROUP_NONE );
-		rayPath.Init( start, awayfromPlayer );
-
-		g_bBulletPortalTrace = true; // Why is this a global???
-		UTIL_Portal_TraceRay(rayPath, MASK_SOLID, &m_filterBeams, &tr);
-		g_bBulletPortalTrace = false;
-#else	
-		UTIL_TraceLine( start, awayfromPlayer, MASK_SOLID, pOwner, COLLISION_GROUP_NONE, &tr );
-#endif
-		if ( tr.fraction == 1 )
+		ray.Init(start, awayfromPlayer);
+		g_bBulletPortalTrace = true;
+		UTIL_Portal_TraceRay(ray, MASK_SOLID, pOwner, COLLISION_GROUP_NONE, &tr);
+		//UTIL_TraceLine(start, awayfromPlayer, MASK_SOLID, pOwner, COLLISION_GROUP_NONE, &tr);
+		if (tr.fraction == 1)
 		{
-#ifdef PORTAL
-			rayPath.Init( awayfromPlayer, newPosition );
-			m_filterBeams.SetPassEntity( pObject );
-			g_bBulletPortalTrace = true; // Why is this a global???
-			UTIL_Portal_TraceRay(rayPath, MASK_SOLID, &m_filterBeams, &tr);
+
+			//UTIL_TraceLine(start, newPosition, MASK_SOLID, pOwner, COLLISION_GROUP_NONE, &tr);
+			//UTIL_Portal_TraceRay(ray, MASK_SOLID, pObject, COLLISION_GROUP_NONE, &tr);
+
+			// go to whichever is closest, either false or true
+			Vector entpos = pObject->GetAbsOrigin();
+
+			ray.Init(start, newPosition);
+			trace_t desired;
 			g_bBulletPortalTrace = false;
-#else
-			UTIL_TraceLine( awayfromPlayer, newPosition, MASK_SOLID, pObject, COLLISION_GROUP_NONE, &tr );
-#endif
-			Vector dir = tr.endpos - newPosition;
-			float distance = VectorNormalize(tr.endpos);
-			float maxDist = m_gravCallback.m_maxVel * gpGlobals->frametime;
-			if ( distance > maxDist )
-			{
-				newPosition += tr.endpos * maxDist;
+			UTIL_Portal_TraceRay(ray, 0, pObject, COLLISION_GROUP_NONE, &desired);
+
+			trace_t desired2;
+			g_bBulletPortalTrace = true;
+			UTIL_Portal_TraceRay(ray, 0, pObject, COLLISION_GROUP_NONE, &desired2);
+			
+			//Vector desiredtemp;
+			Vector desired3;
+			float desired3dist = 10000000000000000000.0f;
+			if (pPortal) {
+				//pPortal->WorldToEntitySpace(desired.endpos, &desiredtemp); // get relative to first portal
+				//pPortal->m_hLinkedPortal->EntityToWorldSpace(pPortal->m_matrixThisToLinked * desiredtemp, &desired3);
+				VectorCopy(pPortal->m_matrixThisToLinked * desired.endpos,desired3);
+				//Msg("%f %f %f", desired3.x, desired3.y, desired3.z);
+				desired3dist = entpos.DistToSqr(desired3);
+				//debugoverlay->AddBoxOverlay(desired3, Vector(-10, -10, -10), Vector(10, 10, 10), QAngle(0, 0, 0), 255, 255, 255, 255, 0.1);
+				//debugoverlay->AddLineOverlay(desired3, pOwner->GetAbsOrigin(), 0, 255, 0, true, 0.1);
 			}
-			else
-			{
-				newPosition = tr.endpos;
+			
+			
+
+			
+			float desired1dist = entpos.DistToSqr(desired.endpos);
+			float desired2dist = entpos.DistToSqr(desired2.endpos);
+			if (pPortal) {
+				if (desired1dist < desired2dist && desired1dist < desired3dist) {
+					VectorCopy(desired.endpos, newPosition); // didnt go through the portal
+				}
+				else if (desired2dist <= desired1dist && desired2dist < desired3dist) {
+					VectorCopy(desired2.endpos, newPosition);
+				}
+				else {
+					VectorCopy(desired3, newPosition);
+				}
+			}
+			else {
+				if (desired1dist < desired2dist) {
+					VectorCopy(desired.endpos, newPosition); // didnt go through the portal
+				}
+				else {
+					VectorCopy(desired2.endpos, newPosition);
+				}
 			}
 		}
 		else
@@ -861,7 +921,7 @@ void CWeaponGravityGun::EffectUpdate( void )
 	{
 		m_gravCallback.ClearAutoAlign();
 	}
-
+	m_lastYaw = pOwner->EyeAngles().y;
 	NetworkStateChanged();
 }
 
@@ -893,6 +953,8 @@ void CWeaponGravityGun::SoundStop( void )
 		break;
 	}
 }
+
+
 
 
 
@@ -991,7 +1053,9 @@ void CWeaponGravityGun::SoundUpdate( void )
 
 			// blend the "mass" sounds between 50 and 500 kg
 			IPhysicsObject *pPhys = m_hObject->VPhysicsGetObject();
-			
+			if (!pPhys) {
+				return;
+			}
 			float fade = UTIL_LineFraction( pPhys->GetMass(), 50, 500, 1.0 );
 
 			if ( GetParametersForSound( "Weapon_Physgun.LightObject", params, NULL ) )
@@ -1238,11 +1302,12 @@ void CWeaponGravityGun::AttachObject( CBaseEntity *pObject, const Vector& start,
 	IPhysicsObject *pPhysics = pObject ? (pObject->VPhysicsGetObject()) : NULL;
 	if ( pPhysics && pObject->GetMoveType() == MOVETYPE_VPHYSICS )
 	{
+		pPhysics->EnableMotion(true);
 		m_distance = distance;
 
 		m_gravCallback.AttachEntity( pObject, pPhysics, end );
 		float mass = pPhysics->GetMass();
-		Msg( "Object mass: %.2f lbs (%.2f kg)\n", kg2lbs(mass), mass );
+		//Msg( "Object mass: %.2f lbs (%.2f kg)\n", kg2lbs(mass), mass );
 		float vel = phys_gunvel.GetFloat();
 		if ( mass > phys_gunmass.GetFloat() )
 		{
@@ -1276,6 +1341,9 @@ void CWeaponGravityGun::AttachObject( CBaseEntity *pObject, const Vector& start,
 //=========================================================
 void CWeaponGravityGun::PrimaryAttack( void )
 {
+	if (m_bBlockPrimary) {
+		return;
+	}
 	if ( !m_active )
 	{
 		SendWeaponAnim( ACT_VM_PRIMARYATTACK );
@@ -1294,6 +1362,13 @@ void CWeaponGravityGun::SecondaryAttack( void )
 	m_flNextSecondaryAttack = gpGlobals->curtime + 0.1;
 	if ( m_active )
 	{
+		if (m_hObject) {
+			IPhysicsObject *phys = m_hObject->VPhysicsGetObject();
+			if (phys) {
+				phys->EnableMotion(false);
+				m_bBlockPrimary = true;
+			}
+		}
 		EffectDestroy();
 		SoundDestroy();
 		return;
@@ -1320,17 +1395,7 @@ void CWeaponGravityGun::SecondaryAttack( void )
 	Vector end = start + forward * 4096;
 
 	trace_t tr;
-#ifdef PORTAL
-	Ray_t rayPath;
-	CTraceFilterSkipTwoEntities m_filterBeams( pOwner, NULL, COLLISION_GROUP_NONE );
-	rayPath.Init( start, end );
-
-	g_bBulletPortalTrace = true; // Why is this a global???
-	UTIL_Portal_TraceRay(rayPath, MASK_SHOT, &m_filterBeams, &tr);
-	g_bBulletPortalTrace = false;
-#else
 	UTIL_TraceLine( start, end, MASK_SHOT, pOwner, COLLISION_GROUP_NONE, &tr );
-#endif
 	if ( tr.fraction == 1.0 || (tr.surface.flags & SURF_SKY) )
 		return;
 
@@ -1377,24 +1442,27 @@ void CWeaponGravityGun::WeaponIdle( void )
 	if ( HasWeaponIdleTimeElapsed() )
 	{
 		SendWeaponAnim( ACT_VM_IDLE );
-		if ( m_active )
+	}
+	if (m_active)
+	{
+		CBaseEntity* pObject = m_hObject;
+		// pellet is touching object, so glue it
+		if (pObject && m_glueTouching)
 		{
-			CBaseEntity *pObject = m_hObject;
-			// pellet is touching object, so glue it
-			if ( pObject && m_glueTouching )
+			CGravityPellet* pPellet = m_activePellets[m_pelletAttract].pellet;
+			if (pPellet->MakeConstraint(pObject))
 			{
-				CGravityPellet *pPellet = m_activePellets[m_pelletAttract].pellet;
-				if ( pPellet->MakeConstraint( pObject ) )
-				{
-					WeaponSound( SPECIAL1 );
-					m_flNextPrimaryAttack = gpGlobals->curtime + 0.75;
-					m_activePellets[m_pelletHeld].pellet->MakeInert();
-				}
+				WeaponSound(SPECIAL1);
+				m_flNextPrimaryAttack = gpGlobals->curtime + 0.75;
+				m_activePellets[m_pelletHeld].pellet->MakeInert();
 			}
-
-			EffectDestroy();
-			SoundDestroy();
 		}
+
+		EffectDestroy();
+		SoundDestroy();
+	}
+	else {
+		m_bBlockPrimary = false;
 	}
 }
 
@@ -1452,3 +1520,104 @@ bool CWeaponGravityGun::Reload( void )
 
 	return false;
 }
+/*
+#define NUM_COLLISION_TESTS 2500
+void CC_CollisionTest( const CCommand &args )
+{
+	if ( !physenv )
+		return;
+
+	Msg( "Testing collision system\n" );
+	int i;
+	CBaseEntity *pSpot = gEntList.FindEntityByClassname( NULL, "info_player_start");
+	Vector start = pSpot->GetAbsOrigin();
+	static Vector *targets = NULL;
+	static bool first = true;
+	static float test[2] = {1,1};
+	if ( first )
+	{
+		targets = new Vector[NUM_COLLISION_TESTS];
+		float radius = 0;
+		float theta = 0;
+		float phi = 0;
+		for ( i = 0; i < NUM_COLLISION_TESTS; i++ )
+		{
+			radius += NUM_COLLISION_TESTS * 123.123;
+			radius = fabs(fmod(radius, 128));
+			theta += NUM_COLLISION_TESTS * 76.76;
+			theta = fabs(fmod(theta, DEG2RAD(360)));
+			phi += NUM_COLLISION_TESTS * 1997.99;
+			phi = fabs(fmod(phi, DEG2RAD(180)));
+			
+			float st, ct, sp, cp;
+			SinCos( theta, &st, &ct );
+			SinCos( phi, &sp, &cp );
+
+			targets[i].x = radius * ct * sp;
+			targets[i].y = radius * st * sp;
+			targets[i].z = radius * cp;
+			
+			// make the trace 1024 units long
+			Vector dir = targets[i] - start;
+			VectorNormalize(dir);
+			targets[i] = start + dir * 1024;
+		}
+		first = false;
+	}
+
+	//Vector results[NUM_COLLISION_TESTS];
+
+	int testType = 0;
+	if ( args.ArgC() >= 2 )
+	{
+		testType = atoi( args[1] );
+	}
+	float duration = 0;
+	Vector size[2];
+	size[0].Init(0,0,0);
+	size[1].Init(16,16,16);
+	unsigned int dots = 0;
+
+	for ( int j = 0; j < 2; j++ )
+	{
+		float startTime = engine->Time();
+		if ( testType == 1 )
+		{
+			const CPhysCollide *pCollide = g_PhysWorldObject->GetCollide();
+			trace_t tr;
+
+			for ( i = 0; i < NUM_COLLISION_TESTS; i++ )
+			{
+				physcollision->TraceBox( start, targets[i], -size[j], size[j], pCollide, vec3_origin, vec3_angle, &tr );
+				dots += physcollision->ReadStat(0);
+				//results[i] = tr.endpos;
+			}
+		}
+		else
+		{
+			testType = 0;
+			CBaseEntity *pWorld = GetContainingEntity( INDEXENT(0) );
+			trace_t tr;
+
+			for ( i = 0; i < NUM_COLLISION_TESTS; i++ )
+			{
+				UTIL_TraceModel( start, targets[i], -size[j], size[j], pWorld, COLLISION_GROUP_NONE, &tr );
+				//results[i] = tr.endpos;
+			}
+		}
+
+		duration += engine->Time() - startTime;
+	}
+	test[testType] = duration;
+	Msg("%d collisions in %.2f ms (%u dots)\n", NUM_COLLISION_TESTS, duration*1000, dots );
+	Msg("Current speed ratio: %.2fX BSP:JGJK\n", test[1] / test[0] );
+#if 0
+	int red = 255, green = 0, blue = 0;
+	for ( i = 0; i < NUM_COLLISION_TESTS; i++ )
+	{
+		NDebugOverlay::Line( start, results[i], red, green, blue, false, 2 );
+	}
+#endif
+}
+static ConCommand collision_test("collision_test", CC_CollisionTest, "Tests collision system", FCVAR_CHEAT );
+*/

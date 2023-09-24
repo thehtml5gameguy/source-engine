@@ -6,7 +6,6 @@
 //===========================================================================//
 
 #include "cbase.h"
-#include "client_render_handle.h"
 #include "hud.h"
 #include "in_buttons.h"
 #include "beamdraw.h"
@@ -14,10 +13,7 @@
 #include "clienteffectprecachesystem.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
-#include "materialsystem/imaterialsystem.h"
-#include "mathlib/mathlib.h"
 #include "tier0/memdbgon.h"
-#include "tier2/tier2.h"
 
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectGravityGun )
 CLIENTEFFECT_MATERIAL( "sprites/physbeam" )
@@ -34,9 +30,13 @@ public:
 	virtual const QAngle&			GetRenderAngles( void ) { return vec3_angle; }
 	virtual bool					ShouldDraw( void ) { return true; }
 	virtual bool					IsTransparent( void ) { return true; }
-	virtual bool					ShouldReceiveProjectedTextures( int flags ) { return false; }
+	virtual bool					ShouldReceiveProjectedTextures( int flags ) { return true; }
 	virtual int						DrawModel( int flags );
+	
 
+	matrix3x4_t worldTransform;
+	const matrix3x4_t& RenderableToWorldTransform() { return worldTransform; }
+	
 	// Returns the bounds relative to the origin (render bounds)
 	virtual void	GetRenderBounds( Vector& mins, Vector& maxs )
 	{
@@ -51,9 +51,6 @@ public:
 	int						m_active;
 	int						m_glueTouching;
 	int						m_viewModelIndex;
-
-	matrix3x4_t z;
-	const matrix3x4_t& RenderableToWorldTransform() { return z; }
 };
 
 
@@ -90,6 +87,17 @@ public:
 	{
 		BaseClass::OnDataChanged( updateType );
 		m_beam.Update( this );
+	}
+
+	void CreateMove(float flInputSampleTime, CUserCmd* pCmd, const QAngle& vecOldViewAngles)
+	{
+		BaseClass::CreateMove(flInputSampleTime, pCmd, vecOldViewAngles);
+
+		// Block angular movement when IN_ATTACK is pressed
+		if ((pCmd->buttons & IN_ATTACK) && (pCmd->buttons & IN_USE))
+		{
+			VectorCopy(vecOldViewAngles, pCmd->viewangles);
+		}
 	}
 
 private:
@@ -168,7 +176,7 @@ int	C_BeamQuadratic::DrawModel( int )
 	}
 
 	float scrollOffset = gpGlobals->curtime - (int)gpGlobals->curtime;
-	CMatRenderContextPtr pRenderContext( materials );
+	CMatRenderContextPtr pRenderContext(materials);
 	pRenderContext->Bind( pMat );
 	DrawBeamQuadratic( points[0], points[1], points[2], 13, color, scrollOffset );
 	return 1;
