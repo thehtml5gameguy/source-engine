@@ -16,8 +16,8 @@
 #include "util.h"
 #include <cstddef>
 
-ConVar sv_portal_laser_high_precision_update ( "portal_laser_high_precision_update", "0.03f", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
-ConVar sv_portal_laser_normal_update ( "portal_laser_normal_update", "0.05f", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
+ConVar sv_portal_laser_high_precision_update ( "portal_laser_high_precision_update", "0.03f", FCVAR_CHEAT /*| FCVAR_DEVELOPMENTONLY*/ );
+ConVar sv_portal_laser_normal_update ( "portal_laser_normal_update", "0.05f", FCVAR_CHEAT /*| FCVAR_DEVELOPMENTONLY*/ );
 
 class CPortalLaser : public CBaseAnimating
 {
@@ -127,10 +127,14 @@ void CPortalLaser::Precache( void )
 
 	const char* cModelName = m_ModelName.ToCStr();
 
-	if(cModelName == nullptr || *cModelName == '\0')
-		cModelName = "models/props/laser_emitter.mdl";
+	if(cModelName != nullptr && *cModelName != '\0')
+	{
+		PrecacheModel(cModelName);
+		return;
+	}
+	PrecacheModel("models/props/laser_emitter.mdl");
 
-	CBaseEntity::PrecacheModel(cModelName);
+	BaseClass::Precache();
 }
 
 
@@ -139,9 +143,15 @@ void CPortalLaser::Precache( void )
 //-----------------------------------------------------------------------------
 void CPortalLaser::Spawn( void )
 {
+	Precache();
 	m_bGlowInitialized = false;
 	if(!m_bFromReflectedCube)
 	{
+		const char* cModelName = m_ModelName.ToCStr();
+		if(cModelName == nullptr || *cModelName == '\0')
+			cModelName =  "models/props/laser_emitter.mdl";
+		
+		SetModel( cModelName );
 		SetSolid( SOLID_VPHYSICS );
 
 		m_iLaserAttachment = LookupAttachment("laser_attachment");
@@ -173,14 +183,8 @@ void CPortalLaser::TurnOn( void )
 	if(m_pfnThink != nullptr)
 		return;
 
-	float fTime;
-	if(m_bFromReflectedCube)
-		fTime = sv_portal_laser_normal_update.GetFloat();
-	else
-		fTime = sv_portal_laser_high_precision_update.GetFloat();
-
 	SetThink(&CPortalLaser::StrikeThink);
-	SetNextThink(gpGlobals->curtime + fTime);
+	SetNextThink( gpGlobals->curtime );
 }
 void CPortalLaser::TurnOff( void )
 {
@@ -243,7 +247,7 @@ void CPortalLaser::StrikeThink( void )
 			if ( traceDmg.m_pEnt->IsPlayer() )
 			{
 				CTakeDamageInfo dmgInfo;
-				dmgInfo.SetDamage( 2 );
+				dmgInfo.SetDamage( 1 );
 				dmgInfo.SetDamageType( DMG_ENERGYBEAM );
 				traceDmg.m_pEnt->TakeDamage( dmgInfo );
 			}
@@ -267,4 +271,12 @@ void CPortalLaser::StrikeThink( void )
 			}
 		}
 	}
+
+	float fTime;
+	if(m_bFromReflectedCube)
+		fTime = sv_portal_laser_normal_update.GetFloat();
+	else
+		fTime = sv_portal_laser_high_precision_update.GetFloat();
+
+	SetNextThink(gpGlobals->curtime + fTime);
 }

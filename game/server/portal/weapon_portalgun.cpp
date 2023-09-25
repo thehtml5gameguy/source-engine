@@ -331,7 +331,7 @@ void CWeaponPortalgun::FirePortalDirection2( inputdata_t &inputdata )
 
 float CWeaponPortalgun::TraceFirePortal( bool bPortal2, const Vector &vTraceStart, const Vector &vDirection, trace_t &tr, Vector &vFinalPosition, QAngle &qFinalAngles, int iPlacedBy, bool bTest /*= false*/ )
 {
-	CTraceFilterSimpleClassnameList baseFilter( this, COLLISION_GROUP_NONE );
+	CTraceFilterSimpleClassnameList baseFilter( this, COLLISION_GROUP_PROJECTILE );
 	UTIL_Portal_Trace_Filter( &baseFilter );
 	CTraceFilterTranslateClones traceFilterPortalShot( &baseFilter );
 

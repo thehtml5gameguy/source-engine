@@ -197,6 +197,9 @@ $Project "Client (Portal)"
 		{
 			$File	"portal\remake\c_env_portal_laser.cpp"
 			$File	"portal2\c_prop_floor_button.cpp"
+
+			$File	"vgui_movie_display.cpp"
+			$File	"c_movie_display.cpp"
 		}
 	}
 }

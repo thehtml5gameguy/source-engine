@@ -5,6 +5,8 @@
  */
 
 #include "prop_laser_catcher.h"
+#include "const.h"
+#include "particle_parse.h"
 
 LINK_ENTITY_TO_CLASS( prop_laser_catcher, CPropLaserCatcher );
 
@@ -32,6 +34,10 @@ CPropLaserCatcher::CPropLaserCatcher()
 void CPropLaserCatcher::Precache( void )
 {
 	PrecacheModel( STRING( GetModelName() ) );
+	PrecacheParticleSystem("laser_relay_powered");
+	PrecacheScriptSound("prop_laser_catcher.poweron");
+	PrecacheScriptSound("prop_laser_catcher.poweroff");
+	PrecacheScriptSound("prop_laser_catcher.powerloop");
 
 	BaseClass::Precache();
 }
@@ -69,7 +75,15 @@ void CPropLaserCatcher::Spawn( void )
 	SetModel( STRING( GetModelName() ) );
 	SetSolid( SOLID_VPHYSICS );
 	CreateVPhysics();
-	SetSequence( LookupSequence("idle") );
+	SetMoveType( MOVETYPE_VPHYSICS );
+
+	m_IdleSequence = LookupSequence("idle");
+	m_PowerOnSequence = LookupSequence("spin");
+	m_iTargetAttachment = LookupAttachment("laser_target");
+
+	ResetSequence(m_PowerOnSequence);
+
+	//SetSequence(  );
 
 	SetThink( &CPropLaserCatcher::CatcherThink );
 	SetNextThink( gpGlobals->curtime );
@@ -87,16 +101,42 @@ void CPropLaserCatcher::CatcherThink( void )
 {
 	if( m_bActivated )
 	{
-		m_OnPowered.FireOutput( this, this );
-		SetCatcherSkin();
-		SetSequence( LookupSequence("spin") );
+		if( !m_bAlreadyActivated )
+		{
+			m_OnPowered.FireOutput( this, this );
+
+			DispatchParticleEffect("laser_relay_powered",PATTACH_POINT_FOLLOW, this, "particle_emitter");
+
+			EmitSound("prop_laser_catcher.poweron");
+			EmitSound("prop_laser_catcher.powerloop");
+			StopSound("prop_laser_catcher.poweroff");
+
+			SetCatcherSkin();
+			SetSequence( m_PowerOnSequence );
+			SetPlaybackRate( 1.0f );
+			UseClientSideAnimation();
+		}
+		m_bAlreadyActivated = true;
 		m_bActivated = false; // This is a dumb way of making the catcher power off.
 	}
 	else
 	{
-	 	m_OnUnpowered.FireOutput( this, this );
-		SetCatcherSkin();
-		SetSequence( LookupSequence("idle") );
+		if( m_bAlreadyActivated )
+		{
+			m_OnUnpowered.FireOutput( this, this );
+
+			StopParticleEffects(this);
+
+			EmitSound("prop_laser_catcher.poweroff");
+			StopSound("prop_laser_catcher.powerloop");
+
+			SetCatcherSkin();
+			SetSequence( m_IdleSequence );
+			SetPlaybackRate( 1.0f );
+			UseClientSideAnimation();
+		}
+
+		m_bAlreadyActivated = false;
 	}
 	SetNextThink( gpGlobals->curtime + 0.2f );
 }

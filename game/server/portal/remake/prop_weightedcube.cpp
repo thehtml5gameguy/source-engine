@@ -539,9 +539,11 @@ void CPropWeightedCube::Spawn( void )
 
 	SetInteraction( PROPINTER_PHYSGUN_ALLOW_OVERHEAD );
 
+	AddSpawnFlags( SF_PHYSPROP_ENABLE_PICKUP_OUTPUT );
+
 	BaseClass::Spawn();
 
-	SetCollisionGroup( COLLISION_GROUP_NONE ); // COLLISION_GROUP_WEIGHTED_CUBE
+	SetCollisionGroup( COLLISION_GROUP_NONE ); // COLLISION_GROUP_WEIGHTED_CUBE Fixme don't collide with debris
 
 	SetFadeDistance( -1.0f, 0.0f );
 }

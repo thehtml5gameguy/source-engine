@@ -6,7 +6,7 @@
 
 #include "cbase.h"
 
-class CPropLaserCatcher : public CBaseAnimating
+class CPropLaserCatcher : public CBaseAnimating //, public CCatcher
 {
 public:
 	DECLARE_CLASS( CPropLaserCatcher, CBaseAnimating );
@@ -25,6 +25,10 @@ private:
 
 	COutputEvent m_OnPowered;
 	COutputEvent m_OnUnpowered;
+
+	int m_IdleSequence;
+	int m_PowerOnSequence;
+	int m_iTargetAttachment;
 
 	bool m_bActivated;
     bool m_bAlreadyActivated;
