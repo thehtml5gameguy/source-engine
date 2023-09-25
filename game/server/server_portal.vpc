@@ -367,6 +367,9 @@ $Project "Server (Portal)"
 
 			$File   "movie_display.cpp"
 
+			$File   "portal2\trigger_catapult.cpp"
+			$File	"$SRCDIR\game\shared\portal2\trigger_catapult_shared.cpp"
+
 			//$Folder "Paint"
 			//{
 			//	// shared
