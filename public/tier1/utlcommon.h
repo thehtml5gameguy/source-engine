@@ -121,6 +121,7 @@ struct StringEqualFunctor { bool operator()( const char *a, const char *b ) cons
 struct CaselessStringLessFunctor { bool operator()( const char *a, const char *b ) const { return Q_strcasecmp( a, b ) < 0; } };
 struct CaselessStringEqualFunctor { bool operator()( const char *a, const char *b ) const { return Q_strcasecmp( a, b ) == 0; } };
 
+struct IdentityHashFunctor { unsigned int operator() ( uint32 s ) const { return s; } };
 struct Mix32HashFunctor { unsigned int operator()( uint32 s ) const; };
 struct Mix64HashFunctor { unsigned int operator()( uint64 s ) const; };
 struct StringHashFunctor { unsigned int operator()( const char* s ) const; };

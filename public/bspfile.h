@@ -786,6 +786,13 @@ struct dfaceid_t
 	unsigned short	hammerfaceid;
 };
 
+struct dfacebrushlist_t
+{
+	DECLARE_BYTESWAP_DATADESC();
+	unsigned short	m_nFaceBrushCount;		// number of brushes that contributed a side to this face
+	unsigned short	m_nFaceBrushStart;		// first brush. NOTE: if m_nFaceBrushCount is 1, this is a brush index!
+};
+
 
 // NOTE: Only 7-bits stored!!!
 #define LEAF_FLAGS_SKY			0x01		// This leaf has 3D sky in its PVS

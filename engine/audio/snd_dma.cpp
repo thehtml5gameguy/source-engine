@@ -70,7 +70,7 @@ extern IVideoServices *g_pVideo;
 #define DIST_MULT_TO_SNDLVL( dist_mult ) (soundlevel_t)(int)( dist_mult ? ( 20 * log10( pow( 10.0f, snd_refdb.GetFloat() / 20 ) / (dist_mult * snd_refdist.GetFloat()) ) ) : 0 )
 
 extern ConVar dsp_spatial;
-extern IPhysicsSurfaceProps	*physprop;
+extern IPhysicsSurfaceProps	*physprops;
 
 extern bool IsReplayRendering();
 
@@ -3547,7 +3547,7 @@ void DAS_GetSurfaceData( das_room_t *proom, trace_t *ptr, das_surfdata_t *psurfd
 	Vector norm;			// wall normal at hit location
 	surfacedata_t *psurf;
 
-	psurf = physprop->GetSurfaceData( ptr->surface.surfaceProps );
+	psurf = physprops->GetSurfaceData( ptr->surface.surfaceProps );
 	
 	reflectivity = psurf ? psurf->audio.reflectivity : DAS_REFLECTIVITY_NORM;
 

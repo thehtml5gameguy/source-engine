@@ -41,6 +41,8 @@ static uint8 *s_StaticPropPolyhedronMemory = NULL;
 
 CStaticCollisionPolyhedronCache g_StaticCollisionPolyhedronCache;
 
+ConVar sv_portal_staticcollisioncache_cachebrushes( "sv_portal_staticcollisioncache_cachebrushes", IsPS3() ? "0" : "1", FCVAR_REPLICATED, "Cache all solid brushes as polyhedrons on level load" );
+
 typedef ICollideable *ICollideablePtr; //needed for key comparison function syntax
 static bool CollideablePtr_KeyCompareFunc( const ICollideablePtr &a, const ICollideablePtr &b )
 { 
@@ -120,6 +122,59 @@ void CStaticCollisionPolyhedronCache::Clear( void )
 	}
 }
 
+static CPolyhedron *ConvertBrushToPolyhedron( int iBrushNumber, int iContentsMask, bool bTempPolyhedron )
+{
+	int iBrushContents = 0;
+	int iPlanesNeeded = -enginetrace->GetBrushInfo( iBrushNumber, iBrushContents, NULL, 0 );
+	if( (iPlanesNeeded == 0) || ((iContentsMask & iBrushContents) == 0) )
+		return NULL;
+
+	uint8 *pMemory;
+	void *pDeleteMemory;
+	float *fStackPlanes;
+	BrushSideInfo_t *brushSides;
+	size_t iMemoryNeeded = iPlanesNeeded * ((sizeof( float ) * 4) + sizeof( BrushSideInfo_t ));
+
+	if( iMemoryNeeded < (64 * 1024) )
+	{
+		//use stack memory
+		pMemory = (uint8 *)stackalloc( iMemoryNeeded );
+		pDeleteMemory = NULL;
+	}
+	else
+	{
+		pMemory = new uint8 [iMemoryNeeded];
+		pDeleteMemory = pMemory;
+	}
+
+
+	fStackPlanes = (float *)pMemory;
+	brushSides = (BrushSideInfo_t *)(pMemory + (iPlanesNeeded * (sizeof( float ) * 4)));
+	int iPlaneCount = enginetrace->GetBrushInfo( iBrushNumber, iBrushContents, brushSides, iPlanesNeeded );
+
+	CPolyhedron *pRetVal = NULL;
+	Assert( iPlaneCount == iPlanesNeeded );
+	if( iPlaneCount == iPlanesNeeded )
+	{
+		for( int i = 0; i != iPlaneCount; ++i )
+		{
+			fStackPlanes[(i * 4) + 0] = brushSides[i].plane.normal.x;
+			fStackPlanes[(i * 4) + 1] = brushSides[i].plane.normal.y;
+			fStackPlanes[(i * 4) + 2] = brushSides[i].plane.normal.z;
+			fStackPlanes[(i * 4) + 3] = brushSides[i].plane.dist;
+		}
+
+		pRetVal = GeneratePolyhedronFromPlanes( fStackPlanes, iPlaneCount, (1.0f/16.0f), bTempPolyhedron );
+	}
+
+	if( pDeleteMemory )
+	{
+		delete []pDeleteMemory;
+	}
+
+	return pRetVal;
+}
+
 void CStaticCollisionPolyhedronCache::Update( void )
 {
 	Clear();
@@ -139,51 +194,15 @@ void CStaticCollisionPolyhedronCache::Update( void )
 	
 
 	//brushes
+	if( sv_portal_staticcollisioncache_cachebrushes.GetBool() )
 	{
-		int iBrush = 0;
-		CUtlVector<Vector4D> Planes;
+		int iBrush = 0;		
+		int iBrushContents;
 
-		float fStackPlanes[4 * 400]; //400 is a crapload of planes in my opinion
+		CPolyhedron *pTempPolyhedron = ConvertBrushToPolyhedron( iBrush, MASK_SOLID | CONTENTS_PLAYERCLIP | CONTENTS_MONSTERCLIP, true );
 
-		while( enginetrace->GetBrushInfo( iBrush, &Planes, NULL ) )
+		while( (pTempPolyhedron != NULL) || (enginetrace->GetBrushInfo( iBrush, iBrushContents, NULL, 0 ) != 0) )
 		{
-			int iPlaneCount = Planes.Count();
-			AssertMsg( iPlaneCount != 0, "A brush with no planes???????" );
-
-			const Vector4D *pReturnedPlanes = Planes.Base();
-
-			CPolyhedron *pTempPolyhedron;
-
-			if( iPlaneCount > 400 )
-			{
-				// o_O, we'll have to get more memory to transform this brush
-				float *pNonstackPlanes = new float [4 * iPlaneCount];
-
-				for( int i = 0; i != iPlaneCount; ++i )
-				{
-					pNonstackPlanes[(i * 4) + 0] = pReturnedPlanes[i].x;
-					pNonstackPlanes[(i * 4) + 1] = pReturnedPlanes[i].y;
-					pNonstackPlanes[(i * 4) + 2] = pReturnedPlanes[i].z;
-					pNonstackPlanes[(i * 4) + 3] = pReturnedPlanes[i].w;
-				}
-
-				pTempPolyhedron = GeneratePolyhedronFromPlanes( pNonstackPlanes, iPlaneCount, 0.01f, true );
-
-				delete []pNonstackPlanes;
-			}
-			else
-			{
-				for( int i = 0; i != iPlaneCount; ++i )
-				{
-					fStackPlanes[(i * 4) + 0] = pReturnedPlanes[i].x;
-					fStackPlanes[(i * 4) + 1] = pReturnedPlanes[i].y;
-					fStackPlanes[(i * 4) + 2] = pReturnedPlanes[i].z;
-					fStackPlanes[(i * 4) + 3] = pReturnedPlanes[i].w;
-				}
-
-				pTempPolyhedron = GeneratePolyhedronFromPlanes( fStackPlanes, iPlaneCount, 0.01f, true );
-			}
-
 			if( pTempPolyhedron )
 			{
 				size_t memRequired = (sizeof( CPolyhedron_LumpedMemory )) +
@@ -229,6 +248,7 @@ void CStaticCollisionPolyhedronCache::Update( void )
 			}
 
 			++iBrush;
+			pTempPolyhedron = ConvertBrushToPolyhedron( iBrush, MASK_SOLID | CONTENTS_PLAYERCLIP | CONTENTS_MONSTERCLIP, true );
 		}
 
 		usedSpaceInWorkspace[workSpacesAllocated - 1] = workSpaceSize - roomLeftInWorkSpace;
@@ -265,7 +285,7 @@ void CStaticCollisionPolyhedronCache::Update( void )
 				m_BrushPolyhedrons[i] = pDest;
 				pFinalDest += memRequired;
 
-				intp memoryOffset = ((uint8 *)pDest) - ((uint8 *)pSource);
+				int memoryOffset = ((uint8 *)pDest) - ((uint8 *)pSource);
 
 				memcpy( pDest, pSource, memRequired );
 				//move all the pointers to their new location.

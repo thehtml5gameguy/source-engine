@@ -297,6 +297,7 @@ private:
 
 	// World/map
 	void		Map_LoadModel( model_t *mod );
+	void		Map_LoadModelGuts( model_t *mod );
 	void		Map_UnloadModel( model_t *mod );
 	void		Map_UnloadCubemapSamples( model_t *mod );
 
@@ -387,8 +388,7 @@ IModelLoader *modelloader = ( IModelLoader * )&g_ModelLoader;
 //-----------------------------------------------------------------------------
 // Globals used by the CMapLoadHelper
 //-----------------------------------------------------------------------------
-dheader_t		s_MapHeader;
-
+static dheader_t		s_MapHeader;
 static FileHandle_t		s_MapFileHandle = FILESYSTEM_INVALID_HANDLE;
 static char				s_szLoadName[128];
 static char				s_szMapName[128];
@@ -1474,25 +1474,29 @@ void Mod_LoadTexdata( void )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void Mod_LoadTexinfo( void )
+void Mod_LoadTexinfo( CMapLoadHelper &lh )
 {
 	texinfo_t *in;
 	mtexinfo_t *out;
 	int 	i, j, count;
 	// UNDONE: Fix this
 
-	CMapLoadHelper lh( LUMP_TEXINFO );
-
 	in = (texinfo_t *)lh.LumpBase();
 	if (lh.LumpSize() % sizeof(*in))
-		Host_Error ("Mod_LoadTexinfo: funny lump size in %s",lh.GetMapName());
+		Host_Error ("Mod_LoadTexinfo: funny lump size in %s", lh.GetMapName());
 	count = lh.LumpSize() / sizeof(*in);
 	out = (mtexinfo_t *)Hunk_AllocName( count*sizeof(*out), va( "%s [%s]", lh.GetLoadName(), "texinfo" ) );
 
 	s_pMap->texinfo = out;
 	s_pMap->numtexinfo = count;
 
-	bool loadtextures = mat_loadtextures.GetBool();
+#if defined( DEVELOPMENT_ONLY ) || defined( ALLOW_TEXT_MODE )
+	static bool s_bTextMode = CommandLine()->HasParm( "-textmode" );
+#else
+	const bool s_bTextMode = false;
+#endif
+
+	bool loadtextures = mat_loadtextures.GetBool() && !s_bTextMode;
 
 	for ( i=0 ; i<count ; ++i, ++in, ++out )
 	{
@@ -1507,7 +1511,9 @@ void Mod_LoadTexinfo( void )
 
 		// assume that the scale is the same on both s and t.
 		out->luxelsPerWorldUnit = VectorLength( out->lightmapVecsLuxelsPerWorldUnits[0].AsVector3D() );
-		out->worldUnitsPerLuxel = 1.0f / out->luxelsPerWorldUnit;
+		// Protect against divide-by-zero
+		if ( out->luxelsPerWorldUnit != 0 )
+			out->worldUnitsPerLuxel = 1.0f / out->luxelsPerWorldUnit;
 
 		out->flags = in->flags;
 		out->texinfoFlags = 0;
@@ -1517,6 +1523,10 @@ void Mod_LoadTexinfo( void )
 			if ( in->texdata >= 0 )
 			{
 				out->material = GL_LoadMaterial( lh.GetMap()->texdata[ in->texdata ].name, TEXTURE_GROUP_WORLD );
+				if ( out->material->IsErrorMaterial() == true )
+				{
+					Msg( "Missing map material: %s\n", lh.GetMap()->texdata[ in->texdata ].name );
+				}
 			}
 			else
 			{
@@ -4435,7 +4445,6 @@ static void MarkBrushModelWaterSurfaces( model_t* world,
 	host_state.SetWorldModel( pTemp );
 }
 
-int g_nMapLoadCount = 0;
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : *mod - 
@@ -4443,11 +4452,11 @@ int g_nMapLoadCount = 0;
 //-----------------------------------------------------------------------------
 void CModelLoader::Map_LoadModel( model_t *mod )
 {
-	++g_nMapLoadCount;
-
+#ifndef MEM_DETAILED_ACCOUNTING_MAP_LOADMODEL
 	MEM_ALLOC_CREDIT();
+#endif
 
-#ifndef SWDS
+#ifndef DEDICATED
 	EngineVGui()->UpdateProgressBar(PROGRESS_LOADWORLDMODEL);
 #endif
 
@@ -4462,202 +4471,304 @@ void CModelLoader::Map_LoadModel( model_t *mod )
 	// point at the shared world/brush data
 	mod->brush.pShared = &m_worldBrushData;
 	mod->brush.renderHandle = 0;
+	mod->type = mod_brush;
+	mod->nLoadFlags |= FMODELLOADER_LOADED;
+	CMapLoadHelper::Init( mod, m_szLoadName );
+	Map_LoadModelGuts( mod );
+	// Close map file, etc.
+	CMapLoadHelper::Shutdown();
+}
 
+int g_nMapLoadCount = 0;
+
+// do all of the I/O.  This is broken out to bracket the MapLoadHelper::Init/Shutdown
+void CModelLoader::Map_LoadModelGuts( model_t *mod )
+{
+	++g_nMapLoadCount;
 	// HDR and features must be established first
 	COM_TimestampedLog( "  Map_CheckForHDR" );
 	m_bMapHasHDRLighting = Map_CheckForHDR( mod, m_szLoadName );
-	if ( IsX360() && !m_bMapHasHDRLighting )
+	if ( IsGameConsole() && !m_bMapHasHDRLighting )
 	{
-		Warning( "Map '%s' lacks exepected HDR data! 360 does not support accurate LDR visuals.", m_szLoadName );
+		Warning( "Map '%s' lacks exepected HDR data! 360 does not support accurate LDR visuals.\n", m_szLoadName );
 	}
+
+	// load the texinfo lump (used by many subsequent lumps in raw form)
+	CMapLoadHelper lhTexinfo( LUMP_TEXINFO );
+	texinfo_t *pTexinfo = (texinfo_t *)lhTexinfo.LumpBase();
+	if ( lhTexinfo.LumpSize() % sizeof( *pTexinfo ) )
+		Host_Error( "Map_LoadModelGuts: bad LUMP_TEXINFO size in %s", m_szLoadName );
+	int texinfoCount = lhTexinfo.LumpSize() / sizeof( *pTexinfo );
+	if ( texinfoCount < 1 )
+		return;
+	if ( texinfoCount > MAX_MAP_TEXINFO )
+		Sys_Error( "Map_LoadModelGuts: Map has too many surfaces, %s", m_szLoadName );
 
 	// Load the collision model
 	COM_TimestampedLog( "  CM_LoadMap" );
 	unsigned int checksum;
-	CM_LoadMap( mod->strName, false, &checksum );
+	CM_LoadMap( mod->strName, false, pTexinfo, texinfoCount, &checksum );
 
-	// Load the map
-	mod->type = mod_brush;
-	mod->nLoadFlags |= FMODELLOADER_LOADED;
-	CMapLoadHelper::Init( mod, m_szLoadName );
-
-	COM_TimestampedLog( "  Mod_LoadVertices" );
-	Mod_LoadVertices();
+	// The MEM_ALLOC_CREDITs here will be overridden and credited to Map_LoadModel()
+	// unless you #define MEM_DETAILED_ACCOUNTING_MAP_LOADMODEL at the top of this file.
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadVertices");
+		COM_TimestampedLog( "  Mod_LoadVertices" );
+		Mod_LoadVertices();
+	}
 	
-	COM_TimestampedLog( "  Mod_LoadEdges" );
-	medge_t *pedges = Mod_LoadEdges();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadEdges");
+		COM_TimestampedLog( "  Mod_LoadEdges" );
+		medge_t *pedges = Mod_LoadEdges();
+	
+		COM_TimestampedLog( "  Mod_LoadSurfedges" );
+		Mod_LoadSurfedges( pedges );
+	}
 
-	COM_TimestampedLog( "  Mod_LoadSurfedges" );
-	Mod_LoadSurfedges( pedges );
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadPlanes");
+		COM_TimestampedLog( "  Mod_LoadPlanes" );
+		Mod_LoadPlanes();
+	}
 
-	COM_TimestampedLog( "  Mod_LoadPlanes" );
-	Mod_LoadPlanes();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadOcclusion");
+		COM_TimestampedLog( "  Mod_LoadOcclusion" );
+		Mod_LoadOcclusion();
+	}
 
-	COM_TimestampedLog( "  Mod_LoadOcclusion" );
-	Mod_LoadOcclusion();
+	{
+		// texdata needs to load before texinfo
+		MEM_ALLOC_CREDIT_("Mod_LoadTexdata");
+		COM_TimestampedLog( "  Mod_LoadTexdata" );
+		Mod_LoadTexdata();
+	}
 
-	// texdata needs to load before texinfo
-	COM_TimestampedLog( "  Mod_LoadTexdata" );
-	Mod_LoadTexdata();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadTexinfo");
+		COM_TimestampedLog( "  Mod_LoadTexinfo" );
+		Mod_LoadTexinfo( lhTexinfo );
+	}
 
-	COM_TimestampedLog( "  Mod_LoadTexinfo" );
-	Mod_LoadTexinfo();
-
-#ifndef SWDS
+#ifndef DEDICATED
 	EngineVGui()->UpdateProgressBar(PROGRESS_LOADWORLDMODEL);
 #endif
 
 	// Until BSP version 19, this must occur after loading texinfo
-	COM_TimestampedLog( "  Mod_LoadLighting" );
-	if ( g_pMaterialSystemHardwareConfig->GetHDREnabled() && CMapLoadHelper::LumpSize( LUMP_LIGHTING_HDR ) > 0 )
 	{
-		CMapLoadHelper mlh( LUMP_LIGHTING_HDR );
-		Mod_LoadLighting( mlh );
+		MEM_ALLOC_CREDIT_("Mod_LoadLighting");
+		COM_TimestampedLog( "  Mod_LoadLighting" );
+		if ( g_pMaterialSystemHardwareConfig->GetHDREnabled() && CMapLoadHelper::LumpSize( LUMP_LIGHTING_HDR ) > 0 )
+		{
+			CMapLoadHelper mlh( LUMP_LIGHTING_HDR );
+			Mod_LoadLighting( mlh );
+		}
+		else
+		{
+			CMapLoadHelper mlh( LUMP_LIGHTING );
+			Mod_LoadLighting( mlh );
+		}
 	}
-	else
+
 	{
-		CMapLoadHelper mlh( LUMP_LIGHTING );
-		Mod_LoadLighting( mlh );
+		MEM_ALLOC_CREDIT_("Mod_LoadPrimitives");
+		COM_TimestampedLog( "  Mod_LoadPrimitives" );
+		Mod_LoadPrimitives();
 	}
 
-	COM_TimestampedLog( "  Mod_LoadPrimitives" );
-	Mod_LoadPrimitives();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadPrimVerts");
+		COM_TimestampedLog( "  Mod_LoadPrimVerts" );
+		Mod_LoadPrimVerts();
+	}
 
-	COM_TimestampedLog( "  Mod_LoadPrimVerts" );
-	Mod_LoadPrimVerts();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadPrimIndices");
+		COM_TimestampedLog( "  Mod_LoadPrimIndices" );
+		Mod_LoadPrimIndices();
+	}
 
-	COM_TimestampedLog( "  Mod_LoadPrimIndices" );
-	Mod_LoadPrimIndices();
-
-#ifndef SWDS
+#ifndef DEDICATED
 	EngineVGui()->UpdateProgressBar(PROGRESS_LOADWORLDMODEL);
 #endif
 
-	// faces need to be loaded before vertnormals
-	COM_TimestampedLog( "  Mod_LoadFaces" );
-	Mod_LoadFaces();
+	{
+		// faces need to be loaded before vertnormals
+		MEM_ALLOC_CREDIT_("Mod_LoadFaces");
+		COM_TimestampedLog( "  Mod_LoadFaces" );
+		Mod_LoadFaces();
+		//Mod_LoadFaceBrushes();
+	}
 
-	COM_TimestampedLog( "  Mod_LoadVertNormals" );
-	Mod_LoadVertNormals();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadVertNormals");
+		COM_TimestampedLog( "  Mod_LoadVertNormals" );
+		Mod_LoadVertNormals();
+	}
 
-	COM_TimestampedLog( "  Mod_LoadVertNormalIndices" );
-	Mod_LoadVertNormalIndices();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadVertNormalIndices");
+		COM_TimestampedLog( "  Mod_LoadVertNormalIndices" );
+		Mod_LoadVertNormalIndices();
+	}
 
-#ifndef SWDS
+#ifndef DEDICATED
 	EngineVGui()->UpdateProgressBar(PROGRESS_LOADWORLDMODEL);
 #endif
 
-	// note leafs must load befor marksurfaces
-	COM_TimestampedLog( "  Mod_LoadLeafs" );
-	Mod_LoadLeafs();
+	{
+		// note leafs must load befor marksurfaces
+		MEM_ALLOC_CREDIT_("Mod_LoadLeafs");
+		COM_TimestampedLog( "  Mod_LoadLeafs" );
+		Mod_LoadLeafs();
+	}
 
-	COM_TimestampedLog( "  Mod_LoadMarksurfaces" );
-    Mod_LoadMarksurfaces();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadMarksurfaces");
+		COM_TimestampedLog( "  Mod_LoadMarksurfaces" );
+		Mod_LoadMarksurfaces();
+	}
 
-	COM_TimestampedLog( "  Mod_LoadNodes" );
-	Mod_LoadNodes();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadNodes");
+		COM_TimestampedLog( "  Mod_LoadNodes" );
+		Mod_LoadNodes();
+	}
 
-	COM_TimestampedLog( "  Mod_LoadLeafWaterData" );
-	Mod_LoadLeafWaterData();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadLeafWaterData");
+		COM_TimestampedLog( "  Mod_LoadLeafWaterData" );
+		Mod_LoadLeafWaterData();
+	}
 
-	COM_TimestampedLog( "  Mod_LoadCubemapSamples" );
-	Mod_LoadCubemapSamples();
-
-#ifndef SWDS
-	// UNDONE: Does the cmodel need worldlights?
-	COM_TimestampedLog( "  OverlayMgr()->LoadOverlays" );
-	OverlayMgr()->LoadOverlays();	
+#ifndef DEDICATED
+	{
+		// UNDONE: Does the cmodel need worldlights?
+		MEM_ALLOC_CREDIT_("OverlayMgr()->LoadOverlays");
+		COM_TimestampedLog( "  OverlayMgr()->LoadOverlays" );
+		OverlayMgr()->LoadOverlays();	
+	}
 #endif
 
-	COM_TimestampedLog( "  Mod_LoadLeafMinDistToWater" );
-	Mod_LoadLeafMinDistToWater();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadLeafMinDistToWater");
+		COM_TimestampedLog( "  Mod_LoadLeafMinDistToWater" );
+		Mod_LoadLeafMinDistToWater();
+	}
 
-#ifndef SWDS
+#ifndef DEDICATED
 	EngineVGui()->UpdateProgressBar(PROGRESS_LOADWORLDMODEL);
 #endif
 
-	COM_TimestampedLog( "  LUMP_CLIPPORTALVERTS" );
-	Mod_LoadLump( mod, 
-		LUMP_CLIPPORTALVERTS, 
-		va( "%s [%s]", m_szLoadName, "clipportalverts" ),
-		sizeof(m_worldBrushData.m_pClipPortalVerts[0]), 
-		(void**)&m_worldBrushData.m_pClipPortalVerts,
-		&m_worldBrushData.m_nClipPortalVerts );
+	{
+		MEM_ALLOC_CREDIT_("LUMP_CLIPPORTALVERTS");
+		COM_TimestampedLog( "  LUMP_CLIPPORTALVERTS" );
+		Mod_LoadLump( mod, 
+			LUMP_CLIPPORTALVERTS, 
+			va( "%s [%s]", m_szLoadName, "clipportalverts" ),
+			sizeof(m_worldBrushData.m_pClipPortalVerts[0]), 
+			(void**)&m_worldBrushData.m_pClipPortalVerts,
+			&m_worldBrushData.m_nClipPortalVerts );
+	}
 
-	COM_TimestampedLog( "  LUMP_AREAPORTALS" );
-	Mod_LoadLump( mod, 
-		LUMP_AREAPORTALS, 
-		va( "%s [%s]", m_szLoadName, "areaportals" ),
-		sizeof(m_worldBrushData.m_pAreaPortals[0]), 
-		(void**)&m_worldBrushData.m_pAreaPortals,
-		&m_worldBrushData.m_nAreaPortals );
+	{
+		MEM_ALLOC_CREDIT_("LUMP_AREAPORTALS");
+		COM_TimestampedLog( "  LUMP_AREAPORTALS" );
+		Mod_LoadLump( mod, 
+			LUMP_AREAPORTALS, 
+			va( "%s [%s]", m_szLoadName, "areaportals" ),
+			sizeof(m_worldBrushData.m_pAreaPortals[0]), 
+			(void**)&m_worldBrushData.m_pAreaPortals,
+			&m_worldBrushData.m_nAreaPortals );
+	}
 	
-	COM_TimestampedLog( "  LUMP_AREAS" );
-	Mod_LoadLump( mod, 
-		LUMP_AREAS, 
-		va( "%s [%s]", m_szLoadName, "areas" ),
-		sizeof(m_worldBrushData.m_pAreas[0]), 
-		(void**)&m_worldBrushData.m_pAreas,
-		&m_worldBrushData.m_nAreas );
-
-	COM_TimestampedLog( "  Mod_LoadWorldlights" );
-	if ( g_pMaterialSystemHardwareConfig->GetHDREnabled() && CMapLoadHelper::LumpSize( LUMP_WORLDLIGHTS_HDR ) > 0 )
 	{
-		CMapLoadHelper mlh( LUMP_WORLDLIGHTS_HDR );
-		Mod_LoadWorldlights( mlh, true );
-	}
-	else
-	{
-		CMapLoadHelper mlh( LUMP_WORLDLIGHTS );
-		Mod_LoadWorldlights( mlh, false );
+		MEM_ALLOC_CREDIT_("LUMP_AREAS");
+		COM_TimestampedLog( "  LUMP_AREAS" );
+		Mod_LoadLump( mod, 
+			LUMP_AREAS, 
+			va( "%s [%s]", m_szLoadName, "areas" ),
+			sizeof(m_worldBrushData.m_pAreas[0]), 
+			(void**)&m_worldBrushData.m_pAreas,
+			&m_worldBrushData.m_nAreas );
 	}
 
-	COM_TimestampedLog( "  Mod_LoadGameLumpDict" );
-	Mod_LoadGameLumpDict();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadWorldlights");
+		COM_TimestampedLog( "  Mod_LoadWorldlights" );
+		if ( g_pMaterialSystemHardwareConfig->GetHDRType() != HDR_TYPE_NONE &&
+			CMapLoadHelper::LumpSize( LUMP_WORLDLIGHTS_HDR ) > 0 )
+		{
+			CMapLoadHelper mlh( LUMP_WORLDLIGHTS_HDR );
+			Mod_LoadWorldlights( mlh, true );
+		}
+		else
+		{
+			CMapLoadHelper mlh( LUMP_WORLDLIGHTS );
+			Mod_LoadWorldlights( mlh, false );
+		}
+	}
 
-	// load the portal information
-	// JAY: Disabled until we need this information.
-#if 0
-	Mod_LoadPortalVerts();
-	Mod_LoadClusterPortals();
-	Mod_LoadClusters();
-	Mod_LoadPortals();
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadCubemapSamples");
+		COM_TimestampedLog( "  Mod_LoadCubemapSamples" );
+		Mod_LoadCubemapSamples();
+	}
+
+#if defined( PORTAL2 ) || defined( CSTRIKE15 )
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadSimpleWorldModel");
+		COM_TimestampedLog( "  Mod_LoadSimpleWorldModel" );
+		Mod_LoadSimpleWorldModel( m_szBaseName );
+	}
 #endif
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadGameLumpDict");
+		COM_TimestampedLog( "  Mod_LoadGameLumpDict" );
+		Mod_LoadGameLumpDict();
+	}
 
-#ifndef SWDS
+#ifndef DEDICATED
 	EngineVGui()->UpdateProgressBar(PROGRESS_LOADWORLDMODEL);
 #endif
 
-	COM_TimestampedLog( "  Mod_LoadSubmodels" );
-	CUtlVector<mmodel_t> submodelList;
-	Mod_LoadSubmodels( submodelList );
+	{
+		MEM_ALLOC_CREDIT_("Mod_LoadSubmodels");
+		COM_TimestampedLog( "  Mod_LoadSubmodels" );
+		CUtlVector<mmodel_t> submodelList;
+		Mod_LoadSubmodels( submodelList );
 
-#ifndef SWDS
-	EngineVGui()->UpdateProgressBar(PROGRESS_LOADWORLDMODEL);
+#ifndef DEDICATED
+		EngineVGui()->UpdateProgressBar(PROGRESS_LOADWORLDMODEL);
 #endif
 
-	COM_TimestampedLog( "  SetupSubModels" );
-	SetupSubModels( mod, submodelList );
+		COM_TimestampedLog( "  SetupSubModels" );
+		SetupSubModels( mod, submodelList );
+	}
 
-	COM_TimestampedLog( "  RecomputeSurfaceFlags" );
-	RecomputeSurfaceFlags( mod );
+	{
+		MEM_ALLOC_CREDIT_("RecomputeSurfaceFlags");
+		COM_TimestampedLog( "  RecomputeSurfaceFlags" );
+		RecomputeSurfaceFlags( mod );
+	}
 
-#ifndef SWDS
+#ifndef DEDICATED
 	EngineVGui()->UpdateProgressBar(PROGRESS_LOADWORLDMODEL);
 #endif
+	{
+		MEM_ALLOC_CREDIT_("Map_VisClear");
+		COM_TimestampedLog( "  Map_VisClear" );
+		Map_VisClear();
+	}
 
-	COM_TimestampedLog( "  Map_VisClear" );
-	Map_VisClear();
-
-	COM_TimestampedLog( "  Map_SetRenderInfoAllocated" );
-	Map_SetRenderInfoAllocated( false );
-
-	// Close map file, etc.
-	CMapLoadHelper::Shutdown();
-
-	double elapsed = Plat_FloatTime() - startTime;
-	COM_TimestampedLog( "Map_LoadModel: Finish - loading took %.4f seconds", elapsed );
+	{
+		MEM_ALLOC_CREDIT_("Map_SetRenderInfoAllocated");
+		COM_TimestampedLog( "  Map_SetRenderInfoAllocated" );
+		Map_SetRenderInfoAllocated( false );
+	}
 }
+
 
 void CModelLoader::Map_UnloadCubemapSamples( model_t *mod )
 {

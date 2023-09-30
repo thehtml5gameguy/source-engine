@@ -38,17 +38,17 @@ struct TraceInfo_t
 {
 	TraceInfo_t()
 	{
-		memset( this, 0, offsetof( TraceInfo_t, m_BrushCounters ) );
+		memset( this, 0, sizeof( TraceInfo_t ) );
 		m_nCheckDepth = -1;
 	}
 
-	VectorAligned m_start;
-	VectorAligned m_end;
-	VectorAligned m_mins;
-	VectorAligned m_maxs;
-	VectorAligned m_extents;
-	VectorAligned m_delta;
-	VectorAligned m_invDelta;
+	Vector m_start;
+	Vector m_end;
+	Vector m_mins;
+	Vector m_maxs;
+	Vector m_extents;
+	Vector m_delta;
+	Vector m_invDelta;
 
 	trace_t m_trace;
 	trace_t m_stabTrace;
@@ -82,6 +82,76 @@ struct TraceInfo_t
 	bool Visit( int dispIndex, TraceCounter_t cachedCount, TraceCounter_t *pCachedCounters );
 };
 
+
+class CBspDebugLog;
+
+struct OcclusionTestResults_t;
+
+struct COcclusionInfo
+{
+	COcclusionInfo()
+	{
+		V_memset( m_nBrushesChecked, 0, sizeof( m_nBrushesChecked ) );
+		m_nBrushesChecked[ 0 ]/*[ 0 ] = m_nBrushesChecked[ 0 ][ 1 ] */= 0xFFFF; // the only associative line that can conceivably contain 0 is the line 0; set it to invalid value, effectively making it empty
+	}
+
+	bool PrepareCheckBrush( uint16 nBrush )
+	{
+		const uint nMask = ARRAYSIZE( m_nBrushesChecked ) - 1;
+		uint16 * pLine = &m_nBrushesChecked[ nBrush & nMask ];
+		if ( pLine[ 0 ] == nBrush /*|| pLine[ 1 ] == nBrush*/ )
+		{
+			s_nAssocArrayHits++;
+			return false; // we already saw this brush
+		}
+		if ( ( pLine[ 0 ] & nMask ) == ( nBrush & nMask ) )
+			++s_nAssocArrayCollisions; // this entry was valid, we have to overwrite it with another entry
+		//pLine[ 1 ] = pLine[ 0 ];
+		++s_nAssocArrayMisses;
+		pLine[ 0 ] = nBrush;
+		return true; // ok, maybe we saw this brush and maybe we didn't, we don't know for sure, but we didn't see it recently
+	}
+
+	fltx4 m_StartXnXYnY; // {p0+X0,p0-X0,p0+Y0,p0-Y0}
+	fltx4 m_EndXnXYnY;// {p1+X1,p1-X1,p1+Y1,p1-Y1}
+	fltx4 m_StartEndZnZ; // {p0+Z0,p0-Z0,p1+Z1,p1-Z1}
+
+	FORCEINLINE fltx4 GetStartX()const { return ShuffleXYXY( m_StartXnXYnY ); }    // {p0+X0, p0-X0,p0+X0,p0-X0}
+	FORCEINLINE fltx4 GetStartY()const { return ShuffleZZWW( m_StartXnXYnY ); }    // {p1+Y1, p1+Y1,p1-Y1,p1-Y1}
+	FORCEINLINE fltx4 GetEndX()const  { return ShuffleXYXY( m_EndXnXYnY ); }       // {p0+X0, p0-X0,p0+X0,p0-X0}
+	FORCEINLINE fltx4 GetEndY()const { return ShuffleZZWW( m_EndXnXYnY ); }        // {p1+Y1, p1+Y1,p1-Y1,p1-Y1}
+	FORCEINLINE fltx4 GetStartZ0()const { return SplatXSIMD( m_StartEndZnZ ); }
+	FORCEINLINE fltx4 GetStartZ1()const { return SplatYSIMD( m_StartEndZnZ ); }
+	FORCEINLINE fltx4 GetEndZ0()const { return SplatZSIMD( m_StartEndZnZ ); }
+	FORCEINLINE fltx4 GetEndZ1()const { return SplatWSIMD( m_StartEndZnZ ); }
+
+	uint16 m_nBrushesChecked[ 64 ]/*[ 2 ]*/; // associative array of brushes that have already been checked
+	VectorAligned m_traceMins;
+	VectorAligned m_traceMaxs;
+	VectorAligned m_delta;
+	VectorAligned m_deltaPos;
+
+	static uint64 s_nAssocArrayCollisions;
+	static uint64 s_nAssocArrayHits;
+	static uint64 s_nAssocArrayMisses;
+
+	Vector m_start;
+	Vector m_end;
+	Vector m_extents;
+	Vector m_uvwExtents;
+	Vector m_uvwMins;
+	Vector m_uvwMaxs;
+	Vector m_deltaSigns;
+// 	Vector m_minsPos;
+// 	Vector m_maxsPos;
+	int m_contents;
+	// BSP Data
+	CCollisionBSPData *m_pBSPData;
+	CBspDebugLog *m_pDebugLog;
+	OcclusionTestResults_t *m_pResults;
+};
+
+
 extern TraceInfo_t g_PrimaryTraceInfo;
 
 #define		NEVER_UPDATED		-99999
@@ -93,9 +163,10 @@ extern TraceInfo_t g_PrimaryTraceInfo;
 
 struct cbrushside_t
 {
-	cplane_t	*plane;
-	unsigned short surfaceIndex;
-	unsigned short bBevel;							// is the side a bevel plane?
+	cplane_t		*plane;
+	unsigned short	surfaceIndex;
+	byte			bBevel;			// is the side a bevel plane?
+	byte			bThin;			// is a thin brush side?
 };
 
 #define NUMSIDES_BOXBRUSH	0xFFFF
@@ -123,7 +194,8 @@ struct cboxbrush_t
 	VectorAligned	maxs;
 
 	unsigned short	surfaceIndex[6];
-	unsigned short	pad2[2];
+	unsigned short	thinMask;
+	unsigned short	pad;
 };
 
 struct cleaf_t
@@ -247,7 +319,7 @@ public:
 	{
 		if ( m_buf.TellPut() )
 		{
-			m_buf.Purge();
+			Discard();
 		}
 
 		m_nCount = nCount;
@@ -279,11 +351,7 @@ public:
 
 	void Discard()
 	{
-		// TODO(johns): Neutered -- Tear this class out. This can no longer be discarded with transparently compressed
-		//              BSPs. This is on the range of 500k of memory, and is probably overly complex for the savings in
-		//              the current era.
-		DevMsg("TODO: Refusing to discard %u bytes\n", sizeof(T) * m_nCount);
-		// m_buf.Purge();
+		m_buf.Purge();
 	}
 
 protected:
@@ -308,7 +376,7 @@ public:
 	// other tree (or a subtree)
 	cnode_t*					map_rootnode;
 
-	char						map_name[MAX_QPATH];
+	char						mapPathName[MAX_QPATH];
 	static csurface_t			nullsurface;
 
 	int									numbrushsides;
@@ -344,13 +412,14 @@ public:
 	int									numareaportals;
 	CRangeValidatedArray<dareaportal_t>	map_areaportals;
 	int									numclusters;
-	char								*map_nullname;
+	const char							*map_nullname;
 	int									numtextures;
-	char								*map_texturenames;
+	char    							*map_texturenames;
 	CRangeValidatedArray<csurface_t>	map_surfaces;
 	int									floodvalid;
 	int									numportalopen;
 	CRangeValidatedArray<bool>			portalopen;
+	int									allcontents;
 
 	csurface_t							*GetSurfaceAtIndex( unsigned short surfaceIndex );
 };
@@ -362,7 +431,7 @@ public:
 class IPhysicsSurfaceProps;
 class IPhysicsCollision;
 
-extern IPhysicsSurfaceProps	*physprop;
+extern IPhysicsSurfaceProps	*physprops;
 extern IPhysicsCollision	*physcollision;
 
 //=============================================================================
@@ -379,7 +448,7 @@ void CollisionBSPData_Destroy( CCollisionBSPData *pBSPData );
 void CollisionBSPData_LinkPhysics( void );
 
 void CollisionBSPData_PreLoad( CCollisionBSPData *pBSPData );
-bool CollisionBSPData_Load( const char *pName, CCollisionBSPData *pBSPData );
+bool CollisionBSPData_Load( const char *pPathName, CCollisionBSPData *pBSPData, texinfo_t *pTexinfo, int texInfoCount );
 void CollisionBSPData_PostLoad( void );
 
 //-----------------------------------------------------------------------------
@@ -471,8 +540,8 @@ void DispCollTrees_FreeLeafList( CCollisionBSPData *pBSPData );
 void CM_DispTreeLeafnum( CCollisionBSPData *pBSPData );
 
 // collision
-void CM_TestInDispTree( TraceInfo_t *pTraceInfo, cleaf_t *pLeaf, Vector const &traceStart, 
-				Vector const &boxMin, Vector const &boxMax, int collisionMask, trace_t *pTrace );
+void CM_TestInDispTree( TraceInfo_t *pTraceInfo, const unsigned short *pDispList, int dispListCount, const Vector &traceStart, 
+				const Vector &boxMin, const Vector &boxMax, int collisionMask, trace_t *pTrace );
 template <bool IS_POINT>
 void FASTCALL CM_TraceToDispTree( TraceInfo_t *pTraceInfo, CDispCollTree *pDispTree, float startFrac, float endFrac );
 void CM_PostTraceToDispTree( TraceInfo_t *pTraceInfo );
@@ -484,7 +553,9 @@ void CM_PostTraceToDispTree( TraceInfo_t *pTraceInfo );
 
 void CM_TestBoxInBrush ( const Vector& mins, const Vector& maxs, const Vector& p1,
 					  trace_t *trace, cbrush_t *brush, BOOL bDispSurf );
+void FASTCALL CM_TestBoxInBrush( TraceInfo_t *pTraceInfo, const cbrush_t *brush );
 void FASTCALL CM_RecursiveHullCheck ( TraceInfo_t *pTraceInfo, int num, const float p1f, const float p2f );
+void CM_GetTraceDataForBSP( const Vector &mins, const Vector &maxs, CTraceListData &traceData );
 
 
 //=============================================================================

@@ -280,6 +280,8 @@ struct worldbrushdata_t
 	msurface2_t	*surfaces2;
 	msurfacelighting_t *surfacelighting;
 	msurfacenormal_t *surfacenormals;
+	unsigned short *m_pSurfaceBrushes;
+	dfacebrushlist_t *m_pSurfaceBrushList;
 
 	bool		unloadedlightmaps;
 

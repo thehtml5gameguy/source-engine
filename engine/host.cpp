@@ -366,6 +366,19 @@ static ConVar host_competitive_ever_enabled( "host_competitive_ever_enabled", "0
 static ConVar mem_test_each_frame( "mem_test_each_frame", "0", 0, "Run heap check at end of every frame\n" );
 static ConVar mem_test_every_n_seconds( "mem_test_every_n_seconds", "0", 0, "Run heap check at a specified interval\n" );
 
+const char *GetMapName( void )
+{
+	static char mapname[ 256 ];
+	const char *pTest = sv.GetMapName();
+	if ( !pTest || !pTest[0] )
+	{
+		// possibly at menu
+		pTest = "nomap";
+	}
+	Q_FileBase( pTest, mapname, sizeof( mapname ) );
+	return mapname;
+}
+
 static ConVar	singlestep( "singlestep", "0", FCVAR_CHEAT, "Run engine in single step mode ( set next to 1 to advance a frame )" );
 static ConVar	cvarNext( "next", "0", FCVAR_CHEAT, "Set to 1 to advance to next frame ( when singlestep == 1 )" );
 // Print a debug message when the client or server cache is missed

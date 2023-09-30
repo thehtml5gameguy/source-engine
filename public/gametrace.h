@@ -93,83 +93,73 @@ typedef CGameTrace trace_t;
 
 //=============================================================================
 
+class ITraceListData
+{
+public:
+	virtual ~ITraceListData() {}
+
+	virtual void Reset() = 0;
+	virtual bool IsEmpty() = 0;
+	// CanTraceRay will return true if the current volume encloses the ray
+	// NOTE: The leaflist trace will NOT check this.  Traces are intersected
+	// against the culled volume exclusively.
+	virtual bool CanTraceRay( const Ray_t &ray ) = 0;
+};
+
+#define TLD_DEF_BRUSH_MAX	64
+#define TLD_DEF_DISP_MAX	32
 #define TLD_DEF_LEAF_MAX	256
 #define TLD_DEF_ENTITY_MAX	1024
 
-class CTraceListData : public IPartitionEnumerator
+class ICollideable;
+struct collideable_handleentity_t
+{
+	IHandleEntity *pEntity;
+	ICollideable *pCollideable;
+};
+
+
+class CTraceListData : public IPartitionEnumerator, public ITraceListData
 {
 public:
 
-	CTraceListData( int nLeafMax = TLD_DEF_LEAF_MAX, int nEntityMax = TLD_DEF_ENTITY_MAX )
+	CTraceListData() 
 	{
-		MEM_ALLOC_CREDIT();
-		m_nLeafCount = 0;
-		m_aLeafList.SetSize( nLeafMax );
+		m_pEngineTrace = NULL;
+		m_bFoundNonSolidLeaf = false;
+		m_mins.Init();
+		m_maxs.Init();
+	}
+	~CTraceListData() {}
 
-		m_nEntityCount = 0;
-		m_aEntityList.SetSize( nEntityMax );
+	void Reset()
+	{
+		m_brushList.RemoveAll();
+		m_dispList.RemoveAll();
+		m_entityList.RemoveAll();
+		m_staticPropList.RemoveAll();
+		m_mins.Init();
+		m_maxs.Init();
+		m_pEngineTrace = NULL;
+		m_bFoundNonSolidLeaf = false;
 	}
 
-	~CTraceListData()
-	{
-		m_nLeafCount = 0;
-		m_aLeafList.RemoveAll();
-
-		m_nEntityCount = 0;
-		m_aEntityList.RemoveAll();
-	}
-
-	void Reset( void )
-	{
-		m_nLeafCount = 0;
-		m_nEntityCount = 0;
-	}
-
-	bool	IsEmpty( void ) const			{ return ( m_nLeafCount == 0 && m_nEntityCount == 0 ); }
-
-	int		LeafCount( void ) const			{ return m_nLeafCount; }
-	int		LeafCountMax( void ) const		{ return m_aLeafList.Count(); }
-	void    LeafCountReset( void )			{ m_nLeafCount = 0; }
-
-	int		EntityCount( void ) const		{ return m_nEntityCount; }
-	int		EntityCountMax( void ) const	{ return m_aEntityList.Count(); }
-	void	EntityCountReset( void )		{ m_nEntityCount = 0; }
-
-	// For leaves...
-	void AddLeaf( int iLeaf )
-	{
-		if ( m_nLeafCount >= m_aLeafList.Count() )
-		{
-			DevMsg( "CTraceListData: Max leaf count along ray exceeded!\n" );
-			m_aLeafList.AddMultipleToTail( m_aLeafList.Count() );
-		}
-
-		m_aLeafList[m_nLeafCount] = iLeaf;
-		m_nLeafCount++;
-	}
-
+	bool IsEmpty() { return m_pEngineTrace == NULL ? true : false; }
 	// For entities...
-	IterationRetval_t EnumElement( IHandleEntity *pHandleEntity )
-	{
-		if ( m_nEntityCount >= m_aEntityList.Count() )
-		{
-			DevMsg( "CTraceListData: Max entity count along ray exceeded!\n" );
-			m_aEntityList.AddMultipleToTail( m_aEntityList.Count() );
-		}
+	IterationRetval_t EnumElement( IHandleEntity *pHandleEntity );
+	bool CanTraceRay( const Ray_t &ray );
 
-		m_aEntityList[m_nEntityCount] = pHandleEntity;
-		m_nEntityCount++;
-
-		return ITERATION_CONTINUE;
-	}
-	
 public:
 
-	int							m_nLeafCount;
-	CUtlVector<int>				m_aLeafList;
+	CUtlVectorFixedGrowable<unsigned short, TLD_DEF_BRUSH_MAX>	m_brushList;
+	CUtlVectorFixedGrowable<unsigned short, TLD_DEF_DISP_MAX>	m_dispList;
+	CUtlVectorFixedGrowable<collideable_handleentity_t, TLD_DEF_ENTITY_MAX>	m_entityList;
+	CUtlVectorFixedGrowable<collideable_handleentity_t, TLD_DEF_ENTITY_MAX>	m_staticPropList;
 
-	int							m_nEntityCount;
-	CUtlVector<IHandleEntity*>	m_aEntityList;
+	Vector	m_mins;
+	Vector	m_maxs;
+	class CEngineTrace *m_pEngineTrace;
+	bool	m_bFoundNonSolidLeaf;
 };
 
 #endif // GAMETRACE_H

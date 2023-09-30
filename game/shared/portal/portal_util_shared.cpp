@@ -169,16 +169,22 @@ Color UTIL_Portal_Color( int iPortal )
 void UTIL_Portal_Trace_Filter( CTraceFilterSimpleClassnameList *traceFilterPortalShot )
 {
 	traceFilterPortalShot->AddClassnameToIgnore( "prop_physics" );
+	traceFilterPortalShot->AddClassnameToIgnore( "prop_weighted_cube" );
+	traceFilterPortalShot->AddClassnameToIgnore( "prop_monster_box" );
 	traceFilterPortalShot->AddClassnameToIgnore( "func_physbox" );
 	traceFilterPortalShot->AddClassnameToIgnore( "npc_portal_turret_floor" );
 	traceFilterPortalShot->AddClassnameToIgnore( "prop_energy_ball" );
 	traceFilterPortalShot->AddClassnameToIgnore( "npc_security_camera" );
-	traceFilterPortalShot->AddClassnameToIgnore( "player" );
 	traceFilterPortalShot->AddClassnameToIgnore( "simple_physics_prop" );
 	traceFilterPortalShot->AddClassnameToIgnore( "simple_physics_brush" );
 	traceFilterPortalShot->AddClassnameToIgnore( "prop_ragdoll" );
 	traceFilterPortalShot->AddClassnameToIgnore( "prop_glados_core" );
-	traceFilterPortalShot->AddClassnameToIgnore( "updateitem2" );
+	traceFilterPortalShot->AddClassnameToIgnore( "player" );
+	traceFilterPortalShot->AddClassnameToIgnore( "Player" );
+	traceFilterPortalShot->AddClassnameToIgnore( "projected_wall_entity" );
+	traceFilterPortalShot->AddClassnameToIgnore( "prop_paint_bomb" );
+	traceFilterPortalShot->AddClassnameToIgnore( "prop_exploding_futbol" );
+	traceFilterPortalShot->AddClassnameToIgnore( "npc_personality_core" );
 }
 
 

@@ -1923,8 +1923,8 @@ void CPortalSimulator::CreatePolyhedrons( void )
 		{
 			Assert( m_InternalData.Simulation.Static.World.Brushes.Polyhedrons.Count() == 0 );
 
-			CUtlVector<int> WorldBrushes;
-			enginetrace->GetBrushesInAABB( vAABBMins, vAABBMaxs, &WorldBrushes, MASK_SOLID_BRUSHONLY|CONTENTS_PLAYERCLIP|CONTENTS_MONSTERCLIP );
+			CBrushQuery WorldBrushes;
+			enginetrace->GetBrushesInAABB( vAABBMins, vAABBMaxs, WorldBrushes, MASK_SOLID_BRUSHONLY|CONTENTS_PLAYERCLIP|CONTENTS_MONSTERCLIP );
 
 			//create locally clipped polyhedrons for the world
 			{
@@ -2087,13 +2087,13 @@ void CPortalSimulator::CreatePolyhedrons( void )
 		float fFarLeftPlaneDistance = vLeft.Dot( m_InternalData.Placement.ptCenter + vLeft * (PORTAL_WALL_FARDIST * 10.0f) );
 
 
-		CUtlVector<int> WallBrushes;
+		CBrushQuery WallBrushes;
 		CUtlVector<CPolyhedron *> WallBrushPolyhedrons_ClippedToWall;
 		CPolyhedron **pWallClippedPolyhedrons = NULL;
 		int iWallClippedPolyhedronCount = 0;
 		if( IsSimulatingVPhysics() ) //if not simulating vphysics, we skip making the entire wall, and just create the minimal tube instead
 		{
-			enginetrace->GetBrushesInAABB( vAABBMins, vAABBMaxs, &WallBrushes, MASK_SOLID_BRUSHONLY );
+			enginetrace->GetBrushesInAABB( vAABBMins, vAABBMaxs, WallBrushes, MASK_SOLID_BRUSHONLY );
 
 			if( WallBrushes.Count() != 0 )
 				ConvertBrushListToClippedPolyhedronList( WallBrushes.Base(), WallBrushes.Count(), fPlanes, 1, PORTAL_POLYHEDRON_CUT_EPSILON, &WallBrushPolyhedrons_ClippedToWall );

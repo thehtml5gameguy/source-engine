@@ -62,6 +62,7 @@ typedef __vector4 u32x4; // a VMX register; just a way of making it explicit tha
 typedef __m128 fltx4;
 typedef __m128 i32x4;
 typedef __m128 u32x4;
+typedef fltx4 bi32x4;
 
 #endif
 
@@ -1909,6 +1910,21 @@ FORCEINLINE fltx4 SplatZSIMD( fltx4 const &a )
 FORCEINLINE fltx4 SplatWSIMD( fltx4 const &a )
 {
 	return _mm_shuffle_ps( a, a, _MM_SHUFFLE( 3, 3, 3, 3 ) );
+}
+
+FORCEINLINE fltx4 ShuffleXXYY( const fltx4 &a )
+{
+	return _mm_shuffle_ps( a, a, MM_SHUFFLE_REV( 0, 0, 1, 1 ) );
+}
+
+FORCEINLINE fltx4 ShuffleXYXY( const fltx4 &a )
+{
+	return _mm_shuffle_ps( a, a, MM_SHUFFLE_REV( 0, 1, 0, 1 ) );
+}
+
+FORCEINLINE fltx4 ShuffleZZWW( const fltx4 &a )
+{
+	return _mm_shuffle_ps( a, a, MM_SHUFFLE_REV( 2, 2, 3, 3 ) );
 }
 
 FORCEINLINE fltx4 SetXSIMD( const fltx4& a, const fltx4& x )

@@ -1212,7 +1212,7 @@ void CStaticProp::CreateVPhysics( IPhysicsEnvironment *pPhysEnv, IVPhysicsKeyHan
 	solid.params.pGameData = pGameData;
 	solid.params.pName = "prop_static";
 
-	int surfaceData = physprop->GetSurfaceIndex( solid.surfaceprop );
+	int surfaceData = physprops->GetSurfaceIndex( solid.surfaceprop );
 	pPhysEnv->CreatePolyObjectStatic( pPhysCollide, 
 		surfaceData, m_Origin, m_Angles, &solid.params );
 	//PhysCheckAdd( pPhys, "Static" );
