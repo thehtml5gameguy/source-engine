@@ -162,5 +162,6 @@ inline const VMatrix& CProp_Portal::MatrixThisToLinked() const
 	return m_matrixThisToLinked;
 }
 
+extern ConVar sv_allow_mobile_portals;
 
 #endif //#ifndef PROP_PORTAL_H

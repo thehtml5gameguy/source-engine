@@ -15,6 +15,36 @@
 
 CUtlVector<CProp_Portal *> CProp_Portal_Shared::AllPortals;
 
+void MobilePortalsUpdatedCallback( IConVar *var, const char *pOldValue, float flOldValue );
+ConVar sv_allow_mobile_portals( "sv_allow_mobile_portals", "0", FCVAR_REPLICATED, "", MobilePortalsUpdatedCallback );
+
+void MobilePortalsUpdatedCallback( IConVar *var, const char *pOldValue, float flOldValue )
+{
+	if ( sv_allow_mobile_portals.GetFloat() == flOldValue )
+		return;
+
+	static ConVarRef sv_cheats ( "sv_cheats" );
+	bool bCheatsAllowed = (sv_cheats.IsValid() && sv_cheats.GetBool() );
+
+	if ( !bCheatsAllowed )
+	{
+#ifdef CLIENT_DLL
+		DevMsg( engine->GetLevelName() );
+		if ( V_stricmp( engine->GetLevelName(), "sp_a2_bts5" ) == 0 )
+#else
+		if ( V_stricmp( gpGlobals->mapname.ToCStr(), "sp_a2_bts5" ) == 0 )
+#endif
+		{
+			bCheatsAllowed = true;
+		}
+	}
+
+	if ( !bCheatsAllowed )
+	{
+		var->SetValue( 0 );
+	}
+}
+
 const Vector CProp_Portal_Shared::vLocalMins( 0.0f, -PORTAL_HALF_WIDTH, -PORTAL_HALF_HEIGHT );
 const Vector CProp_Portal_Shared::vLocalMaxs( 64.0f, PORTAL_HALF_WIDTH, PORTAL_HALF_HEIGHT );
 

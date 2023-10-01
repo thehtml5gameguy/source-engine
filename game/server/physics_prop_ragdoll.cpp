@@ -1509,6 +1509,9 @@ void CRagdollPropAttached::InitRagdollAttached(
 	
 	IPhysicsObject *pRefObject = m_ragdoll.list[ragdollAttachedIndex].pObject;
 
+	if( !pRefObject )
+		return;
+
 	Vector attachmentPointRagdollSpace;
 	pRefObject->WorldToLocal( &attachmentPointRagdollSpace, worldAttachOrigin );
 

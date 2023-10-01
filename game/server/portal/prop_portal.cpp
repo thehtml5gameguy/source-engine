@@ -1371,7 +1371,7 @@ void CProp_Portal::Touch( CBaseEntity *pOther )
 						DoFizzleEffect( PORTAL_FIZZLE_KILLED, false );
 						Fizzle();
 					}
-					else if ( tr.m_pEnt && tr.m_pEnt->IsMoving() )
+					else if ( !sv_allow_mobile_portals.GetBool() && tr.m_pEnt && tr.m_pEnt->IsMoving() )
 					{
 						DevMsg( "Surface behind portal is moving.\n" );
 

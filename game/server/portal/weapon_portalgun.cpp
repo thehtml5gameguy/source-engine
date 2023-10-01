@@ -402,7 +402,7 @@ float CWeaponPortalgun::TraceFirePortal( bool bPortal2, const Vector &vTraceStar
 			qFinalAngles = pPortal->m_qDelayedAngles;
 		}
 
-		return PORTAL_ANALOG_SUCCESS_BUMPED;
+		return PORTAL_ANALOG_SUCCESS_PASSTHROUGH_SURFACE;
 	}
 
 	// Trace to the surface to see if there's a rotating door in the way

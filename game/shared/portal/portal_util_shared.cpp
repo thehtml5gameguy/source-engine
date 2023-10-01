@@ -35,6 +35,9 @@ ConVar sv_portal_trace_vs_holywall ("sv_portal_trace_vs_holywall", "1", FCVAR_RE
 ConVar sv_portal_trace_vs_staticprops ("sv_portal_trace_vs_staticprops", "1", FCVAR_REPLICATED | FCVAR_CHEAT, "Use traces against portal environment static prop geometry" );
 ConVar sv_use_find_closest_passable_space ("sv_use_find_closest_passable_space", "1", FCVAR_REPLICATED | FCVAR_CHEAT, "Enables heavy-handed player teleporting stuck fix code." );
 ConVar sv_use_transformed_collideables("sv_use_transformed_collideables", "1", FCVAR_REPLICATED | FCVAR_CHEAT, "Disables traces against remote portal moving entities using transforms to bring them into local space." );
+
+extern ConVar portal_clone_displacements;
+
 class CTransformedCollideable : public ICollideable //wraps an existing collideable, but transforms everything that pertains to world space by another transform
 {
 public:
@@ -623,6 +626,16 @@ void UTIL_Portal_TraceRay( const CProp_Portal *pPortal, const Ray_t &ray, unsign
 			bCopyBackBrushTraceData = true;
 		}
 
+		if( portalSimulator.m_DataAccess.Simulation.Static.World.Displacements.pCollideable && sv_portal_trace_vs_world.GetBool() && portal_clone_displacements.GetBool() )
+		{
+			physcollision->TraceBox( ray, portalSimulator.m_DataAccess.Simulation.Static.World.Displacements.pCollideable, vec3_origin, vec3_angle, &TempTrace );
+			if( (TempTrace.startsolid == false) && (TempTrace.fraction < pTrace->fraction) ) //never allow something to be stuck in the tube, it's more of a last-resort guide than a real collideable
+			{
+				*pTrace = TempTrace;
+				bCopyBackBrushTraceData = true;
+			}
+		}
+
 		if( bTraceHolyWall )
 		{
 			if( portalSimulator.m_DataAccess.Simulation.Static.Wall.Local.Tube.pCollideable )
@@ -938,6 +951,18 @@ void UTIL_Portal_TraceEntity( CBaseEntity *pEntity, const Vector &vecAbsStart, c
 				}
 			}
 
+			if( pPortalSimulator->m_DataAccess.Simulation.Static.World.Displacements.pCollideable && 
+				sv_portal_trace_vs_world.GetBool() && 
+				portal_clone_displacements.GetBool() )
+			{
+				physcollision->TraceBox( entRay, MASK_ALL, NULL, pPortalSimulator->m_DataAccess.Simulation.Static.World.Displacements.pCollideable, vec3_origin, vec3_angle, &tempTrace );
+				
+				if ( tempTrace.startsolid || (tempTrace.fraction < pTrace->fraction) )
+				{
+					*pTrace = tempTrace;
+				}
+			}
+
 			//if( pPortalSimulator->m_DataAccess.Simulation.Static.Wall.RemoteTransformedToLocal.Brushes.pCollideable &&
 			if( pLinkedPortalSimulator &&
 				pLinkedPortalSimulator->m_DataAccess.Simulation.Static.World.Brushes.pCollideable &&
@@ -948,6 +973,20 @@ void UTIL_Portal_TraceEntity( CBaseEntity *pEntity, const Vector &vecAbsStart, c
 				//							pLinkedPortalSimulator->m_DataAccess.Simulation.Static.World.Brushes.pCollideable, pPortalSimulator->m_DataAccess.Placement.ptaap_LinkedToThis.ptOriginTransform, pPortalSimulator->m_DataAccess.Placement.ptaap_LinkedToThis.qAngleTransform, &tempTrace );
 
 				physcollision->TraceBox( entRay, MASK_ALL, NULL, pLinkedPortalSimulator->m_DataAccess.Simulation.Static.World.Brushes.pCollideable, pPortalSimulator->m_DataAccess.Placement.ptaap_LinkedToThis.ptOriginTransform, pPortalSimulator->m_DataAccess.Placement.ptaap_LinkedToThis.qAngleTransform, &tempTrace );
+
+				if ( tempTrace.startsolid || (tempTrace.fraction < pTrace->fraction) )
+				{
+					*pTrace = tempTrace;
+				}
+			}
+
+			if( pLinkedPortalSimulator &&
+				pLinkedPortalSimulator->m_DataAccess.Simulation.Static.World.Displacements.pCollideable &&
+				sv_portal_trace_vs_world.GetBool() && 
+				sv_portal_trace_vs_holywall.GetBool() && 
+				portal_clone_displacements.GetBool() )
+			{
+				physcollision->TraceBox( entRay, MASK_ALL, NULL, pLinkedPortalSimulator->m_DataAccess.Simulation.Static.World.Displacements.pCollideable, pPortalSimulator->m_DataAccess.Placement.ptaap_LinkedToThis.ptOriginTransform, pPortalSimulator->m_DataAccess.Placement.ptaap_LinkedToThis.qAngleTransform, &tempTrace );
 
 				if ( tempTrace.startsolid || (tempTrace.fraction < pTrace->fraction) )
 				{
@@ -1716,6 +1755,58 @@ PaintPowerType UTIL_Paint_TracePower(CBaseEntity *pBrushEntity,Vector contactPoi
 	*/
 	return NO_POWER;
 }
+
+bool UTIL_IsEntityMovingOrRotating( CBaseEntity* pEntity )
+{
+	Vector vLinearVelocity;
+	AngularImpulse vAngularVelocity;
+
+	IPhysicsObject *pEntityPhysicsObject = pEntity->VPhysicsGetObject();
+#ifdef GAME_DLL
+	if ( pEntityPhysicsObject )
+	{
+		pEntityPhysicsObject->GetVelocity( &vLinearVelocity, &vAngularVelocity );
+	}
+	else
+	{
+		pEntity->GetVelocity( &vLinearVelocity, &vAngularVelocity );
+	}
+#else
+	vLinearVelocity = pEntity->GetAbsVelocity();
+	// vAngularVelocity = vec3_origin; //TODO: Find client equivalent of server code above for angular impulse
+	QAngleToAngularImpulse( pEntity->GetLocalAngularVelocity(), vAngularVelocity );
+#endif
+
+	if ( pEntity->GetAbsVelocity() != vec3_origin )
+		return true;
+
+	//ugh, func_brush attached to an animating entity doesn't give the entity a velocity. Check implicit velocity
+	if( pEntityPhysicsObject && pEntityPhysicsObject->IsMoveable() )
+	{
+		Vector vOtherImplicitVelocity;
+		pEntityPhysicsObject->GetImplicitVelocity( &vOtherImplicitVelocity, NULL );
+		if( vOtherImplicitVelocity.LengthSqr() > 1e-1 )
+			return true;
+	}
+
+#ifdef GAME_DLL
+	CBaseEntity *pCheck = pEntity;
+	while( pCheck )
+	{
+		if( pCheck->GetLocalAngularVelocity() != vec3_angle )
+			return true;
+
+		pCheck = pCheck->GetParent();
+	}
+#endif
+
+	// don't check for the speed, and check for position offset from when the portal is placed instead.
+	/*if ( vLinearVelocity.LengthSqr() > 1e-1 || vAngularVelocity.LengthSqr() > 1e-1 )
+		return true;*/
+
+	return false;
+}
+
 
 #ifdef CLIENT_DLL
 void UTIL_TransformInterpolatedAngle( CInterpolatedVar< QAngle > &qInterped, matrix3x4_t matTransform, bool bSkipNewest )

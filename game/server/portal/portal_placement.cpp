@@ -34,7 +34,7 @@ bool g_bBumpedByLinkedPortal;
 
 ConVar sv_portal_placement_debug ("sv_portal_placement_debug", "0", FCVAR_REPLICATED );
 ConVar sv_portal_placement_never_bump ("sv_portal_placement_never_bump", "0", FCVAR_REPLICATED | FCVAR_CHEAT );
-
+extern ConVar sv_allow_mobile_portals;
 
 bool IsMaterialInList( const csurface_t &surface, char *g_ppszMaterials[] )
 {
@@ -1188,22 +1188,7 @@ float VerifyPortalPlacement( const CProp_Portal *pIgnorePortal, Vector &vOrigin,
 		return PORTAL_ANALOG_SUCCESS_INVALID_SURFACE;
 	}
 
-	// Check if the surface is moving
-	Vector vVelocityCheck;
-	AngularImpulse vAngularImpulseCheck;
-
-	IPhysicsObject *pPhysicsObject = tr.m_pEnt->VPhysicsGetObject();
-
-	if ( pPhysicsObject )
-	{
-		pPhysicsObject->GetVelocity( &vVelocityCheck, &vAngularImpulseCheck );
-	}
-	else
-	{
-		tr.m_pEnt->GetVelocity( &vVelocityCheck, &vAngularImpulseCheck );
-	}
-
-	if ( vVelocityCheck != vec3_origin || vAngularImpulseCheck != vec3_origin )
+	if ( !sv_allow_mobile_portals.GetBool() && UTIL_IsEntityMovingOrRotating( tr.m_pEnt )/*(vVelocityCheck != vec3_origin || vAngularImpulseCheck != vec3_origin)*/ )
 	{
 		if ( sv_portal_placement_debug.GetBool() )
 		{

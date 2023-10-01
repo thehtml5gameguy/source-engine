@@ -92,6 +92,7 @@ void UTIL_Portal_NDebugOverlay( const Vector &ptPortalCenter, const QAngle &qPor
 void UTIL_Portal_NDebugOverlay( const CProp_Portal *pPortal, int r, int g, int b, int a, bool noDepthTest, float duration );
 
 bool FindClosestPassableSpace( CBaseEntity *pEntity, const Vector &vIndecisivePush, unsigned int fMask = MASK_SOLID ); //assumes the object is already in a mostly passable space
+bool UTIL_IsEntityMovingOrRotating( CBaseEntity* pEntity );
 
 bool UTIL_IsPaintableSurface( const csurface_t *surface );
 PaintPowerType UTIL_Paint_TracePower(CBaseEntity *pBrushEntity,Vector contactPoint,Vector *vContactNormal);
