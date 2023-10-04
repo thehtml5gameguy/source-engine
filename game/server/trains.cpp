@@ -1238,11 +1238,11 @@ BEGIN_DATADESC( CFuncTrackTrain )
 
 END_DATADESC()
 
-/*
+
 BEGIN_ENT_SCRIPTDESC( CFuncTrackTrain, CBaseEntity, "func_train" )
 DEFINE_SCRIPTFUNC_NAMED( ScriptGetFuturePosition, "GetFuturePosition", "Get a position on the track x seconds in the future" )
 END_SCRIPTDESC()
-*/
+
 
 LINK_ENTITY_TO_CLASS( func_tracktrain, CFuncTrackTrain );
 

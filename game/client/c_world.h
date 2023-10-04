@@ -31,6 +31,7 @@ public:
 
 	virtual void Precache();
 	virtual void Spawn();
+	virtual bool KeyValue( const char *szKeyName, const char *szValue );
 
 	// Don't worry about adding the world to the collision list; it's already there
 	virtual CollideType_t	GetCollideType( void )	{ return ENTITY_SHOULD_NOT_COLLIDE; }
@@ -40,6 +41,13 @@ public:
 
 	float GetWaveHeight() const;
 	const char *GetDetailSpriteMaterial() const;
+
+#ifdef MAPBASE_VSCRIPT
+	void ClientThink() { ScriptContextThink(); }
+
+	// -2 = Use server language
+	ScriptLanguage_t GetScriptLanguage() { return (ScriptLanguage_t)(m_iScriptLanguageClient != -2 ? m_iScriptLanguageClient : m_iScriptLanguageServer); }
+#endif
 
 public:
 	enum
@@ -56,6 +64,11 @@ public:
 	float	m_flMinPropScreenSpaceWidth;
 	float	m_flMaxPropScreenSpaceWidth;
 	bool	m_bColdWorld;
+
+#ifdef MAPBASE_VSCRIPT
+	int		m_iScriptLanguageServer;
+	int		m_iScriptLanguageClient;
+#endif
 
 private:
 	void	RegisterSharedActivities( void );

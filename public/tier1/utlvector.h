@@ -1465,16 +1465,23 @@ void CUtlVector<T, A>::Validate( CValidator &validator, char *pchName )
 }
 #endif // DBGFLAG_VALIDATE
 
-// easy string list class with dynamically allocated strings. For use with V_SplitString, etc.
-// Frees the dynamic strings in destructor.
-class CUtlStringList : public CUtlVector< char*, CUtlMemory< char*, int > >
+// A vector class for storing pointers, so that the elements pointed to by the pointers are deleted
+// on exit.
+template<class T> class CUtlVectorAutoPurge : public CUtlVector< T, CUtlMemory< T, int> >
 {
 public:
-	~CUtlStringList( void )
+	~CUtlVectorAutoPurge( void )
 	{
-		PurgeAndDeleteElementsArray();
+		this->PurgeAndDeleteElements();
 	}
 
+};
+
+// easy string list class with dynamically allocated strings. For use with V_SplitString, etc.
+// Frees the dynamic strings in destructor.
+class CUtlStringList : public CUtlVectorAutoPurge< char *>
+{
+public:
 	void CopyAndAddToTail( char const *pString )			// clone the string and add to the end
 	{
 		char *pNewStr = new char[1 + strlen( pString )];
@@ -1487,30 +1494,21 @@ public:
 		return strcmp( *sz1, *sz2 );
 	}
 
-	CUtlStringList() = default;
-
-	CUtlStringList( char const *pString, char const *pSeparator )
+	inline void PurgeAndDeleteElements()
 	{
-		SplitString( pString, pSeparator );
+		for( int i=0; i < m_Size; i++ )
+		{
+			delete [] Element(i);
+		}
+		Purge();
 	}
 
-	CUtlStringList( char const *pString, const char **pSeparators, int nSeparators )
+	~CUtlStringList( void )
 	{
-		SplitString2( pString, pSeparators, nSeparators );
+		this->PurgeAndDeleteElements();
 	}
-
-	void SplitString( char const *pString, char const *pSeparator )
-	{
-		V_SplitString( pString, pSeparator, *this );
-	}
-
-	void SplitString2( char const *pString, const char **pSeparators, int nSeparators )
-	{
-		V_SplitString2( pString, pSeparators, nSeparators, *this );
-	}
-private:
-	CUtlStringList( const CUtlStringList &other ); // copying directly will cause double-release of the same strings; maybe we need to do a deep copy, but unless and until such need arises, this will guard against double-release
 };
+
 
 
 

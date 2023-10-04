@@ -75,6 +75,7 @@ projects={
 		'vphysics',
 		'vpklib',
 		'vstdlib',
+		'vscript',
 		'vtf',
 		'utils/vtex',
 		'unicode',
@@ -128,6 +129,7 @@ projects={
 		'vphysics',
 		'vpklib',
 		'vstdlib',
+		'vscript',
 		'vtf',
 		'stub_steam'
 	]

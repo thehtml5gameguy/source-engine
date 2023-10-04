@@ -95,6 +95,13 @@
 	#include "prop_portal_shared.h"
 #endif
 
+#ifdef MAPBASE_VSCRIPT
+#include "mapbase/vscript_funcs_shared.h"
+#include "mapbase/matchers.h"
+#include "items.h"
+#include "point_camera.h"
+#endif
+
 #include "env_debughistory.h"
 #include "collisionutils.h"
 
@@ -290,6 +297,17 @@ float	CAI_BaseNPC::gm_flTimeLastSpawn;
 int		CAI_BaseNPC::gm_nSpawnedThisFrame;
 
 CSimpleSimTimer CAI_BaseNPC::m_AnyUpdateEnemyPosTimer;
+
+#if 0 // defined MAPBASE_VSCRIPT
+// TODO: Better placement?
+ScriptHook_t	CAI_BaseNPC::g_Hook_QueryHearSound;
+ScriptHook_t	CAI_BaseNPC::g_Hook_QuerySeeEntity;
+ScriptHook_t	CAI_BaseNPC::g_Hook_TranslateActivity;
+ScriptHook_t	CAI_BaseNPC::g_Hook_TranslateSchedule;
+//ScriptHook_t	CAI_BaseNPC::g_Hook_GetActualShootPosition;
+ScriptHook_t	CAI_BaseNPC::g_Hook_OverrideMove;
+//ScriptHook_t	CAI_BaseNPC::g_Hook_ShouldPlayFakeSequenceGesture;
+#endif
 
 //
 //	Deferred Navigation calls go here
@@ -659,6 +677,154 @@ void CAI_BaseNPC::Ignite( float flFlameLifetime, bool bNPCOnly, float flSize, bo
 //-----------------------------------------------------------------------------
 
 ConVar	ai_block_damage( "ai_block_damage","0" );
+
+
+#ifdef MAPBASE_VSCRIPT
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+HSCRIPT CAI_BaseNPC::VScriptGetEnemy()
+{
+	return ToHScript( GetEnemy() );
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CAI_BaseNPC::VScriptSetEnemy( HSCRIPT pEnemy )
+{
+	SetEnemy( ToEnt( pEnemy ) );
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+Vector CAI_BaseNPC::VScriptGetEnemyLKP()
+{
+	return GetEnemyLKP();
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+HSCRIPT CAI_BaseNPC::VScriptFindEnemyMemory( HSCRIPT pEnemy )
+{
+	HSCRIPT hScript = NULL;
+	AI_EnemyInfo_t *info = GetEnemies()->Find( ToEnt(pEnemy) );
+	if (info)
+	{
+		hScript = g_pScriptVM->RegisterInstance( reinterpret_cast<Script_AI_EnemyInfo_t*>(info) );
+	}
+
+	return hScript;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+int CAI_BaseNPC::VScriptGetState()
+{
+	return (int)GetState();
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+HSCRIPT CAI_BaseNPC::VScriptGetHintNode()
+{
+	return ToHScript( GetHintNode() );
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+const char *CAI_BaseNPC::VScriptGetSchedule()
+{
+	const char *pName = NULL;
+	if (GetCurSchedule())
+		pName = GetCurSchedule()->GetName();
+
+	if (!pName)
+		pName = "Unknown";
+
+	return pName;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+int CAI_BaseNPC::VScriptGetScheduleID()
+{
+	if (!GetCurSchedule())
+		return -1;
+
+	int iSched = GetCurSchedule()->GetId();
+	
+	// Local IDs are needed to correspond with user-friendly enums
+	if ( AI_IdIsGlobal( iSched ) )
+	{
+		iSched = GetClassScheduleIdSpace()->ScheduleGlobalToLocal(iSched);
+	}
+
+	return iSched;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CAI_BaseNPC::VScriptSetSchedule( const char *szSchedule )
+{
+	SetSchedule( GetScheduleID( szSchedule ) );
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+const char *CAI_BaseNPC::VScriptGetTask()
+{
+	const Task_t *pTask = GetTask();
+	const char *pName = NULL;
+	if (pTask)
+		pName = TaskName( pTask->iTask );
+	else
+		pName = "None";
+
+	return pName;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+int CAI_BaseNPC::VScriptGetTaskID()
+{
+	const Task_t *pTask = GetTask();
+	int iID = -1;
+	if (pTask)
+		iID = GetTaskID( TaskName( pTask->iTask ) );
+
+	return iID;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+HSCRIPT CAI_BaseNPC::VScriptGetExpresser()
+{
+	HSCRIPT hScript = NULL;
+	CAI_Expresser *pExpresser = GetExpresser();
+	if (pExpresser)
+	{
+		hScript = g_pScriptVM->RegisterInstance( pExpresser );
+	}
+
+	return hScript;
+}
+
+HSCRIPT CAI_BaseNPC::VScriptGetCine()
+{
+	return ToHScript(m_hCine.Get());
+}
+
+HSCRIPT CAI_BaseNPC::VScriptGetSquad()
+{
+	HSCRIPT hScript = NULL;
+	CAI_Squad *pSquad = GetSquad();
+	if (pSquad)
+	{
+		hScript = g_pScriptVM->RegisterInstance( pSquad );
+	}
+
+	return hScript;
+}
+#endif
 
 bool CAI_BaseNPC::PassesDamageFilter( const CTakeDamageInfo &info )
 {
@@ -1955,6 +2121,22 @@ bool CAI_BaseNPC::QueryHearSound( CSound *pSound )
 	if( ShouldIgnoreSound( pSound ) )
 		return false;
 
+#if 0 //def MAPBASE_VSCRIPT
+	if (m_ScriptScope.IsInitialized() && g_Hook_QueryHearSound.CanRunInScope(m_ScriptScope))
+	{
+		HSCRIPT hSound = g_pScriptVM->RegisterInstance( pSound );
+
+		ScriptVariant_t functionReturn = true;
+		ScriptVariant_t args[] = { hSound };
+		g_Hook_QueryHearSound.Call( m_ScriptScope, &functionReturn, args );
+
+		g_pScriptVM->RemoveInstance( hSound );
+
+		if (functionReturn.m_bool == false)
+			return false;
+	}
+#endif
+
 	return true;
 }
 
@@ -1967,6 +2149,22 @@ bool CAI_BaseNPC::QuerySeeEntity( CBaseEntity *pEntity, bool bOnlyHateOrFearIfNP
 		Disposition_t disposition = IRelationType( pEntity );
 		return ( disposition == D_HT || disposition == D_FR );
 	}
+
+#if 0 // def MAPBASE_VSCRIPT
+	if (bValid)
+	{
+		if (m_ScriptScope.IsInitialized() && g_Hook_QuerySeeEntity.CanRunInScope(m_ScriptScope))
+		{
+			ScriptVariant_t functionReturn;
+			ScriptVariant_t args[] = { ToHScript(pEntity) };
+			if (g_Hook_QuerySeeEntity.Call( m_ScriptScope, &functionReturn, args ))
+			{
+				if (functionReturn.m_bool == false)
+					bValid = false;
+			}
+		}
+	}
+#endif
 	return true;
 }
 
@@ -5967,6 +6165,31 @@ Activity CAI_BaseNPC::NPC_TranslateActivity( Activity eNewActivity )
 			return nCoverActivity;
 		}
 	}
+
+#if 0 // def MAPBASE_VSCRIPT
+	if (m_ScriptScope.IsInitialized() && g_Hook_TranslateActivity.CanRunInScope(m_ScriptScope))
+	{
+		// activity, activity_id
+		ScriptVariant_t functionReturn;
+		ScriptVariant_t args[] = { GetActivityName(eNewActivity), (int)eNewActivity };
+		if (g_Hook_TranslateActivity.Call( m_ScriptScope, &functionReturn, args ))
+		{
+			if (functionReturn.m_type == FIELD_INTEGER)
+			{
+				Activity activity = (Activity)functionReturn.m_int;
+				if (activity != ACT_INVALID)
+					eNewActivity = (Activity)functionReturn.m_int;
+			}
+			else
+			{
+				Activity activity = (Activity)GetActivityID( functionReturn.m_pszString );
+				if (activity != ACT_INVALID)
+					eNewActivity = activity;
+			}
+		}
+	}
+#endif
+
 	return eNewActivity;
 }
 
@@ -10768,6 +10991,122 @@ BEGIN_DATADESC( CAI_BaseNPC )
 
 END_DATADESC()
 
+
+#ifdef MAPBASE_VSCRIPT
+BEGIN_ENT_SCRIPTDESC( CAI_BaseNPC, CBaseCombatCharacter, "The base class all NPCs derive from." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetEnemy, "GetEnemy", "Get the NPC's current enemy." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptSetEnemy, "SetEnemy", "Set the NPC's current enemy." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetEnemyLKP, "GetEnemyLKP", "Get the last known position of the NPC's current enemy." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptFindEnemyMemory, "FindEnemyMemory", "Get information about the NPC's current enemy." )
+
+	DEFINE_SCRIPTFUNC( GetLastAttackTime, "Get the last time the NPC has used an attack (e.g. fired a bullet from a gun)." )
+	DEFINE_SCRIPTFUNC( GetLastDamageTime, "Get the last time the NPC has been damaged." )
+	DEFINE_SCRIPTFUNC( GetLastPlayerDamageTime, "Get the last time the NPC has been damaged by a player." )
+	DEFINE_SCRIPTFUNC( GetLastEnemyTime, "Get the last time the NPC has seen an enemy." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetState, "GetNPCState", "Get the NPC's current state." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptWake, "Wake", "Awakens the NPC if it is currently asleep." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptSleep, "Sleep", "Puts the NPC into a sleeping state." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetSleepState, "GetSleepState", "Get the NPC's sleep state. (see AISS_ set of constants)" )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptSetSleepState, "SetSleepState", "Set the NPC's sleep state. (see AISS_ set of constants)" )
+	DEFINE_SCRIPTFUNC( AddSleepFlags, "Add to the NPC's sleep flags. (see AI_SLEEP_ set of constants)" )
+	DEFINE_SCRIPTFUNC( RemoveSleepFlags, "Remove from NPC's sleep flags. (see AI_SLEEP_ set of constants)" )
+	DEFINE_SCRIPTFUNC( HasSleepFlags, "Return true if the NPC has the specified sleep flags. (see AI_SLEEP_ set of constants)" )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetHintGroup, "GetHintGroup", "Get the name of the NPC's hint group." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetHintNode, "GetHintNode", "Get the NPC's current AI hint." )
+
+	DEFINE_SCRIPTFUNC( CapabilitiesGet, "Get the capabilities the NPC currently possesses." )
+	DEFINE_SCRIPTFUNC( CapabilitiesAdd, "Add capabilities to the NPC." )
+	DEFINE_SCRIPTFUNC( CapabilitiesRemove, "Remove capabilities from the NPC." )
+	DEFINE_SCRIPTFUNC( CapabilitiesClear, "Clear capabilities for the NPC." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetActivity, "GetActivity", "Get the NPC's current activity." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptGetActivityID, "GetActivityID", "Get the NPC's current activity ID." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptSetActivity, "SetActivity", "Set the NPC's current activity." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptSetActivityID, "SetActivityID", "Set the NPC's current activity ID." )
+	DEFINE_SCRIPTFUNC( ResetActivity, "Reset the NPC's current activity." )
+
+	DEFINE_SCRIPTFUNC_NAMED( ScriptTranslateActivity, "TranslateActivity", "Translates the specified activity string and returns the translated activity ID." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptTranslateActivityID, "TranslateActivityID", "Translates the specified activity ID and returns the translated activity ID." )
+
+	// DEFINE_SCRIPTFUNC_NAMED( VScriptGetGestureVersionOfActivity, "GetGestureVersionOfActivity", "Get the gesture activity counterpart of the specified sequence activity, if one exists." )
+	// DEFINE_SCRIPTFUNC_NAMED( VScriptGetGestureVersionOfActivityID, "GetGestureVersionOfActivityID", "Get the gesture activity ID counterpart of the specified sequence activity ID, if one exists." )
+	// DEFINE_SCRIPTFUNC_NAMED( VScriptGetSequenceVersionOfGesture, "GetSequenceVersionOfGesture", "Get the sequence activity counterpart of the specified gesture activity, if one exists." )
+	// DEFINE_SCRIPTFUNC_NAMED( VScriptGetSequenceVersionOfGestureID, "GetSequenceVersionOfGestureID", "Get the sequence activity ID counterpart of the specified gesture activity ID, if one exists." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetSchedule, "GetSchedule", "Get the NPC's current schedule." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetScheduleID, "GetScheduleID", "Get the NPC's current schedule ID." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptSetSchedule, "SetSchedule", "Set the NPC's current schedule." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptSetScheduleID, "SetScheduleID", "Set the NPC's current schedule ID." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetTask, "GetTask", "Get the NPC's current task." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetTaskID, "GetTaskID", "Get the NPC's current task ID." )
+	DEFINE_SCRIPTFUNC( ClearSchedule, "Clear the NPC's current schedule for the specified reason." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptHasCondition, "HasCondition", "Get whether the NPC has a condition." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptHasConditionID, "HasConditionID", "Get whether the NPC has a condition ID." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptSetCondition, "SetCondition", "Set a condition on the NPC." )
+	DEFINE_SCRIPTFUNC_NAMED( SetCondition, "SetConditionID", "Set a condition on the NPC by ID." )
+	DEFINE_SCRIPTFUNC_NAMED( VScriptClearCondition, "ClearCondition", "Clear a condition on the NPC." )
+	DEFINE_SCRIPTFUNC_NAMED( ClearCondition, "ClearConditionID", "Clear a condition on the NPC by ID." )
+
+	DEFINE_SCRIPTFUNC( IsMoving, "Check if the NPC is moving." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetExpresser, "GetExpresser", "Get a handle for this NPC's expresser." )
+
+	DEFINE_SCRIPTFUNC( IsCommandable, "Check if the NPC is commandable." )
+	DEFINE_SCRIPTFUNC( IsInPlayerSquad, "Check if the NPC is in the player's squad." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetCine, "GetCine", "Get the NPC's currently running scripted sequence if it has one." )
+	DEFINE_SCRIPTFUNC( GetScriptState, "Get the NPC's current scripted sequence state." )
+
+	DEFINE_SCRIPTFUNC_NAMED( VScriptGetSquad, "GetSquad", "Get the NPC's squad if it has one." )
+	DEFINE_SCRIPTFUNC( IsInSquad, "Returns true if the NPC is in a squad." )
+	DEFINE_SCRIPTFUNC( NumWeaponsInSquad, "Get the number of weapons in a squad." )
+		
+	DEFINE_SCRIPTFUNC( IsCrouching, "Returns true if the NPC is crouching." )
+	// DEFINE_SCRIPTFUNC( Crouch, "Tells the NPC to crouch." )
+	// DEFINE_SCRIPTFUNC( Stand, "Tells the NPC to stand if it is crouching." )
+
+	// 
+	// Hooks
+	// 
+	/*
+	BEGIN_SCRIPTHOOK( CAI_BaseNPC::g_Hook_QueryHearSound, "QueryHearSound", FIELD_BOOLEAN, "Called when the NPC is deciding whether to hear a CSound or not." )
+		DEFINE_SCRIPTHOOK_PARAM( "sound", FIELD_HSCRIPT )
+	END_SCRIPTHOOK()
+	BEGIN_SCRIPTHOOK( CAI_BaseNPC::g_Hook_QuerySeeEntity, "QuerySeeEntity", FIELD_BOOLEAN, "Called when the NPC is deciding whether to see an entity or not." )
+		DEFINE_SCRIPTHOOK_PARAM( "entity", FIELD_HSCRIPT )
+	END_SCRIPTHOOK()
+	BEGIN_SCRIPTHOOK( CAI_BaseNPC::g_Hook_TranslateActivity, "NPC_TranslateActivity", FIELD_VARIANT, "Called when the NPC is translating their current activity. The activity is provided in both string and ID form. Should return either an activity string or an activity ID. Return -1 to not translate." )
+		DEFINE_SCRIPTHOOK_PARAM( "activity", FIELD_CSTRING )
+		DEFINE_SCRIPTHOOK_PARAM( "activity_id", FIELD_INTEGER )
+	END_SCRIPTHOOK()
+	BEGIN_SCRIPTHOOK( CAI_BaseNPC::g_Hook_TranslateSchedule, "NPC_TranslateSchedule", FIELD_VARIANT, "Called when the NPC is translating their current schedule. The schedule is provided in both string and ID form. Should return either a schedule string or a schedule ID. Return -1 to not translate." )
+		DEFINE_SCRIPTHOOK_PARAM( "schedule", FIELD_CSTRING )
+		DEFINE_SCRIPTHOOK_PARAM( "schedule_id", FIELD_INTEGER )
+	END_SCRIPTHOOK()
+	BEGIN_SCRIPTHOOK( CAI_BaseNPC::g_Hook_GetActualShootPosition, "GetActualShootPosition", FIELD_VECTOR, "Called when the NPC is getting their actual shoot position, using the default shoot position as the parameter. (NOTE: NPCs which override this themselves might not always use this hook!)" )
+		DEFINE_SCRIPTHOOK_PARAM( "shootOrigin", FIELD_VECTOR )
+		DEFINE_SCRIPTHOOK_PARAM( "target", FIELD_HSCRIPT )
+	END_SCRIPTHOOK()
+	BEGIN_SCRIPTHOOK( CAI_BaseNPC::g_Hook_OverrideMove, "OverrideMove", FIELD_VOID, "Called when the NPC runs movement code, allowing the NPC's movement to be overridden by some other method. (NOTE: NPCs which override this themselves might not always use this hook!)" )
+		DEFINE_SCRIPTHOOK_PARAM( "interval", FIELD_FLOAT )
+	END_SCRIPTHOOK()
+	BEGIN_SCRIPTHOOK( CAI_BaseNPC::g_Hook_ShouldPlayFakeSequenceGesture, "ShouldPlayFakeSequenceGesture", FIELD_BOOLEAN, "Called when an activity is set on a NPC. Returning true will make the NPC convert the activity into a gesture (if a gesture is available) and continue their current activity instead." )
+		DEFINE_SCRIPTHOOK_PARAM( "activity", FIELD_CSTRING )
+		DEFINE_SCRIPTHOOK_PARAM( "translatedActivity", FIELD_CSTRING )
+	END_SCRIPTHOOK()
+	*/
+
+END_SCRIPTDESC();
+#endif
+
+
 BEGIN_SIMPLE_DATADESC( AIScheduleState_t )
 	DEFINE_FIELD( iCurTask,				FIELD_INTEGER ),
 	DEFINE_FIELD( fTaskStatus,			FIELD_INTEGER ),
@@ -12099,6 +12438,21 @@ bool CAI_BaseNPC::OverrideMoveFacing( const AILocalMoveGoal_t &move, float flInt
 
 bool CAI_BaseNPC::OverrideMove( float flInterval )
 {
+/*
+#ifdef MAPBASE_VSCRIPT
+	if (m_ScriptScope.IsInitialized() && g_Hook_OverrideMove.CanRunInScope(m_ScriptScope))
+	{
+		// interval
+		ScriptVariant_t functionReturn;
+		ScriptVariant_t args[] = { flInterval };
+		if (g_Hook_OverrideMove.Call( m_ScriptScope, &functionReturn, args ))
+		{
+			if (functionReturn.m_type == FIELD_BOOLEAN)
+				return functionReturn.m_bool;
+		}
+	}
+#endif
+*/
 	return false;
 }
 

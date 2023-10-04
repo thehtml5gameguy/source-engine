@@ -52,6 +52,10 @@ public:
 
 	bool IsColdWorld( void );
 
+#ifdef MAPBASE_VSCRIPT
+	ScriptLanguage_t GetScriptLanguage() { return (ScriptLanguage_t)(m_iScriptLanguage); }
+#endif
+
 private:
 	DECLARE_DATADESC();
 
@@ -65,6 +69,11 @@ private:
 	CNetworkVar( float, m_flMinPropScreenSpaceWidth );
 	CNetworkVar( float, m_flMaxPropScreenSpaceWidth );
 	CNetworkVar( string_t, m_iszDetailSpriteMaterial );
+
+#ifdef MAPBASE_VSCRIPT
+	int m_iScriptLanguage;
+	//CNetworkVar( int, m_iScriptLanguageClient ); // Now entirely on client
+#endif
 
 	// start flags
 	CNetworkVar( bool, m_bStartDark );

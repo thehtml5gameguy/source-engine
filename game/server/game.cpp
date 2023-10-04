@@ -26,6 +26,8 @@ void MapCycleFileChangedCallback( IConVar *var, const char *pOldString, float fl
 
 ConVar	displaysoundlist( "displaysoundlist","0" );
 ConVar  mapcyclefile( "mapcyclefile", "mapcycle.txt", FCVAR_NONE, "Name of the .txt file used to cycle the maps on multiplayer servers ", MapCycleFileChangedCallback );
+ConVar  loopsingleplayermaps("loopsingleplayermaps", "0", FCVAR_REPLICATED | FCVAR_CHEAT );
+
 ConVar  servercfgfile( "servercfgfile","server.cfg" );
 ConVar  lservercfgfile( "lservercfgfile","listenserver.cfg" );
 

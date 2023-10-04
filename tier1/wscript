@@ -35,6 +35,8 @@ def build(bld):
 		'kvpacker.cpp',
 		'lzmaDecoder.cpp',
 		'lzss.cpp', # [!$SOURCESDK]
+		'mapbase_con_groups.cpp',
+		'mapbase_matchers_base.cpp',
 		'mempool.cpp',
 		'memstack.cpp',
 		'NetAdr.cpp',

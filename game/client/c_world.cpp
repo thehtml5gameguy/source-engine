@@ -76,6 +76,11 @@ bool C_World::Init( int entnum, int iSerialNum )
 	ActivityList_Init();
 	EventList_Init();
 
+#ifdef MAPBASE_VSCRIPT
+	m_iScriptLanguageServer = SL_NONE;
+	m_iScriptLanguageClient = SL_NONE;
+#endif
+
 	return BaseClass::Init( entnum, iSerialNum );
 }
 
@@ -184,6 +189,26 @@ void C_World::Spawn( void )
 	Precache();
 }
 
+//-----------------------------------------------------------------------------
+// Parse data from a map file
+//-----------------------------------------------------------------------------
+bool C_World::KeyValue( const char *szKeyName, const char *szValue ) 
+{
+#ifdef MAPBASE_VSCRIPT
+	if ( FStrEq( szKeyName, "vscriptlanguage" ) )
+	{
+		m_iScriptLanguageServer = atoi( szValue );
+	}
+	else if ( FStrEq( szKeyName, "vscriptlanguage_client" ) )
+	{
+		m_iScriptLanguageClient = atoi( szValue );
+	}
+	else
+#endif
+		return BaseClass::KeyValue( szKeyName, szValue );
+
+	return true;
+}
 
 
 C_World *GetClientWorldEntity()

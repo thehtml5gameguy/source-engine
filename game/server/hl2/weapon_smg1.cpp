@@ -135,6 +135,17 @@ acttable_t	CWeaponSMG1::m_acttable[] =
 
 IMPLEMENT_ACTTABLE(CWeaponSMG1);
 
+// Allows Weapon_BackupActivity() to access the SMG1's activity table.
+acttable_t *GetSMG1Acttable()
+{
+	return CWeaponSMG1::m_acttable;
+}
+
+int GetSMG1ActtableCount()
+{
+	return ARRAYSIZE(CWeaponSMG1::m_acttable);
+}
+
 //=========================================================
 CWeaponSMG1::CWeaponSMG1( )
 {

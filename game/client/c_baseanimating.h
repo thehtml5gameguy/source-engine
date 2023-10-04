@@ -95,6 +95,7 @@ public:
 	DECLARE_CLIENTCLASS();
 	DECLARE_PREDICTABLE();
 	DECLARE_INTERPOLATION();
+	DECLARE_ENT_SCRIPTDESC();
 
 	enum
 	{
@@ -162,6 +163,10 @@ public:
 	virtual void FireEvent( const Vector& origin, const QAngle& angles, int event, const char *options );
 	virtual void FireObsoleteEvent( const Vector& origin, const QAngle& angles, int event, const char *options );
 	virtual const char* ModifyEventParticles( const char* token ) { return token; }
+
+#ifdef MAPBASE_VSCRIPT
+	bool ScriptHookFireEvent( const Vector& origin, const QAngle& angles, int event, const char *options );
+#endif
 
 	// Parses and distributes muzzle flash events
 	virtual bool DispatchMuzzleEffect( const char *options, bool isFirstPerson );
@@ -445,6 +450,42 @@ public:
 
 	virtual bool					IsViewModel() const;
 
+#ifdef MAPBASE_VSCRIPT
+	int		ScriptLookupAttachment( const char *pAttachmentName ) { return LookupAttachment( pAttachmentName ); }
+	const Vector& ScriptGetAttachmentOrigin(int iAttachment);
+	const Vector& ScriptGetAttachmentAngles(int iAttachment);
+	HSCRIPT ScriptGetAttachmentMatrix(int iAttachment);
+
+	void	ScriptGetBoneTransform( int iBone, HSCRIPT hTransform );
+	void	ScriptSetBoneTransform( int iBone, HSCRIPT hTransform );
+
+	void		ScriptAttachEntityToBone( HSCRIPT attachTarget, int boneIndexAttached, const Vector &bonePosition, const QAngle &boneAngles );
+	void		ScriptRemoveBoneAttachment( HSCRIPT boneAttachment );
+	HSCRIPT		ScriptGetBoneAttachment( int i );
+
+	int		ScriptGetSequenceActivity( int iSequence ) { return GetSequenceActivity( iSequence ); }
+	float	ScriptGetSequenceMoveDist( int iSequence ) { return GetSequenceMoveDist( GetModelPtr(), iSequence ); }
+	int		ScriptSelectWeightedSequence( int activity ) { return SelectWeightedSequence( (Activity)activity ); }
+
+	// For VScript
+	int		ScriptGetSkin() { return GetSkin(); }
+	void	SetSkin( int iSkin ) { m_nSkin = iSkin; }
+
+	int		GetForceBone()				{ return m_nForceBone; }
+	void	SetForceBone( int iBone )	{ m_nForceBone = iBone; }
+	const Vector&	GetRagdollForce()					{ return m_vecForce; }
+	void	SetRagdollForce( const Vector &vecForce )	{ m_vecForce = vecForce; }
+
+	HSCRIPT			ScriptBecomeRagdollOnClient();
+
+	static ScriptHook_t	g_Hook_OnClientRagdoll;
+	static ScriptHook_t	g_Hook_FireEvent;
+	//static ScriptHook_t	g_Hook_BuildTransformations; // UNDONE: Thread access issues
+
+	float							ScriptGetPoseParameter(const char* szName);
+#endif
+	void							ScriptSetPoseParameter(const char* szName, float fValue);
+
 protected:
 	// View models scale their attachment positions to account for FOV. To get the unmodified
 	// attachment position (like if you're rendering something else during the view model's DrawModel call),
@@ -651,6 +692,9 @@ public:
 	C_ClientRagdoll( bool bRestoring = true );
 	DECLARE_CLASS( C_ClientRagdoll, C_BaseAnimating );
 	DECLARE_DATADESC();
+#ifdef MAPBASE_VSCRIPT
+	DECLARE_ENT_SCRIPTDESC();
+#endif
 
 	// inherited from IPVSNotify
 	virtual void OnPVSStatusChanged( bool bInPVS );
@@ -671,6 +715,11 @@ public:
 
 	void	FadeOut( void );
 	virtual float LastBoneChangedTime();
+
+#ifdef MAPBASE_VSCRIPT
+	HSCRIPT			ScriptGetRagdollObject( int iIndex );
+	int				ScriptGetRagdollObjectCount();
+#endif
 
 	bool m_bFadeOut;
 	bool m_bImportant;

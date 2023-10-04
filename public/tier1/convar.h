@@ -300,6 +300,7 @@ private:
 		ICommandCallback *m_pCommandCallback; 
 	};
 
+public:
 	union
 	{
 		FnCommandCompletionCallback	m_fnCompletionCallback;
@@ -307,6 +308,8 @@ private:
 	};
 
 	bool m_bHasCompletionCallback : 1;
+
+private:
 	bool m_bUsingNewCommandCallback : 1;
 	bool m_bUsingCommandCallbackInterface : 1;
 };

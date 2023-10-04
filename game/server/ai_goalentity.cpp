@@ -39,6 +39,7 @@ BEGIN_DATADESC( CAI_GoalEntity )
 END_DATADESC()
 
 
+
 //-------------------------------------
 
 void CAI_GoalEntity::Spawn()
