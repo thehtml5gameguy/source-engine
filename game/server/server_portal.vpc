@@ -364,6 +364,7 @@ $Project "Server (Portal)"
 			$File	"portal2\prop_testchamber_door.cpp"
 			$File	"portal2\prop_floor_button.cpp"
 			$File	"portal2\prop_button.cpp"
+			$File	"portal2\point_changelevel.cpp"
 
 			$File   "movie_display.cpp"
 

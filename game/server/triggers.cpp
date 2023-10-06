@@ -42,6 +42,12 @@
 #include "ai_hint.h"
 #endif
 
+#ifdef PORTAL2
+extern const char *ChangeLevel_DestinationMapName( void );
+extern const char *ChangeLevel_OriginMapName( void );
+extern const char *ChangeLevel_GetLandmarkName( void );
+#endif // PORTAL2
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -581,7 +587,7 @@ void CBaseTrigger::EndTouch(CBaseEntity *pOther)
 		// Didn't find one?
 		if ( !bFoundOtherTouchee /*&& !m_bDisabled*/ )
 		{
-			m_OnEndTouchAll.FireOutput(pOther, this);
+			OnEndTouchAll( pOther );
 		}
 	}
 }
@@ -2031,6 +2037,31 @@ int CChangeLevel::InTransitionVolume( CBaseEntity *pEntity, const char *pVolumeN
 //------------------------------------------------------------------------------
 int CChangeLevel::BuildChangeLevelList( levellist_t *pLevelList, int maxList )
 {
+#ifdef PORTAL2
+
+	// Get our origin and destination names
+	const char *lpszDestMapName = ChangeLevel_DestinationMapName();
+	const char *lpszOriginMapName = ChangeLevel_OriginMapName();
+
+	// If these names are valid, we're opting into the streamlined level transition system
+	if ( lpszOriginMapName != NULL && lpszOriginMapName[0] != NULL && lpszDestMapName != NULL && lpszDestMapName[0] != NULL )
+	{
+		// Because this is called symmetrically on both sides of the transition, we need to infer from the names which side we're on
+		bool bAtDestination = !Q_stricmp( STRING(gpGlobals->mapname), lpszDestMapName );
+
+		// Find a landmark on this end of the transition to refer to
+		CBaseEntity *pentLandmark = gEntList.FindEntityByClassname( NULL, (bAtDestination) ? "info_landmark_entry" : "info_landmark_exit" );
+		if ( pentLandmark )
+		{
+			// Landmarks are all named the same thing, we only allow one entry and one exit per level
+			const char *lpszLandmarkName = ChangeLevel_GetLandmarkName();
+			if ( AddTransitionToList( pLevelList, 0, (bAtDestination) ? lpszOriginMapName : lpszDestMapName, lpszLandmarkName, pentLandmark->edict() ) )
+				return 1; // Only one way to go
+		}
+	}
+
+#endif
+
 	int nCount = 0;
 
 	CBaseEntity *pentChangelevel = gEntList.FindEntityByClassname( NULL, "trigger_changelevel" );

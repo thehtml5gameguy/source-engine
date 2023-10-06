@@ -2965,6 +2965,7 @@ bool CM_IsFullyOccluded( const VectorAligned &p0, const VectorAligned &vExtents0
 	oi.m_traceMaxs.z += vExtentsScaled.z;
 	oi.m_contents = CONTENTS_SOLID | CONTENTS_MOVEABLE; // can solid or moveable be semitransparent?
 	oi.m_pDebugLog = NULL;
+/*
 #ifdef _DEBUG
 	static bool s_bDumpOcclusionPass = false;
 	if ( s_bDumpOcclusionPass )
@@ -2975,6 +2976,7 @@ bool CM_IsFullyOccluded( const VectorAligned &p0, const VectorAligned &vExtents0
 		oi.m_pDebugLog->ResetPrimCount();
 	}
 #endif
+*/
 	return CM_RecursiveOcclusionPass( oi, 0, 0.0f, 1.0f, p0, p1 );
 
 }

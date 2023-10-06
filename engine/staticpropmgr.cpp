@@ -1120,9 +1120,6 @@ void CStaticProp::InsertPropIntoKDTree()
 		}
 		else
 		{
-			char szModel[MAX_PATH];
-			Q_strncpy( szModel, m_pModel ? modelloader->GetName( m_pModel ) : "unknown model", sizeof( szModel ) );
-			Warning( "SOLID_VPHYSICS static prop with no vphysics model! (%s)\n", szModel );
 			m_nSolidType = SOLID_NONE;
 			return;
 		}

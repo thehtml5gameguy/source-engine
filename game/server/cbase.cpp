@@ -1,10 +1,4 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// Purpose: 
-//
-// $NoKeywords: $
-//
-//=============================================================================//
 /*
 Entity Data Descriptions
 
@@ -71,6 +65,7 @@ OUTPUTS:
 	of an entity changes it will often fire off outputs so that map makers can hook up behaviors.
 	e.g.  A door entity would have OnDoorOpen, OnDoorClose, OnTouched, etc outputs.
 */
+//=============================================================================
 
 
 #include "cbase.h"
@@ -192,6 +187,18 @@ CEventAction::CEventAction( const char *ActionData )
 	}
 }
 
+CEventAction::CEventAction( const CEventAction &p_EventAction )
+{
+	m_pNext = NULL;
+	m_iIDStamp = ++s_iNextIDStamp;
+
+	m_flDelay = p_EventAction.m_flDelay;
+	m_iTarget = p_EventAction.m_iTarget;
+	m_iParameter = p_EventAction.m_iParameter;
+	m_iTargetInput = p_EventAction.m_iTargetInput;
+	m_nTimesToFire = p_EventAction.m_nTimesToFire;
+}
+
 
 // this memory pool stores blocks around the size of CEventAction/inputitem_t structs
 // can be used for other blocks; will error if to big a block is tried to be allocated
@@ -289,45 +296,22 @@ void CBaseEntityOutput::FireOutput(variant_t Value, CBaseEntity *pActivator, CBa
 #endif
 		}
 
-		if ( ev->m_flDelay )
+		if ( developer.GetBool() )
 		{
-			char szBuffer[256];
-			Q_snprintf( szBuffer,
-						sizeof(szBuffer),
-						"(%0.2f) output: (%s,%s) -> (%s,%s,%.1f)(%s)\n",
-#ifdef TF_DLL
-						engine->GetServerTime(),
-#else
-						gpGlobals->curtime,
-#endif
-						pCaller ? STRING(pCaller->m_iClassname) : "NULL",
-						pCaller ? STRING(pCaller->GetEntityName()) : "NULL",
-						STRING(ev->m_iTarget),
-						STRING(ev->m_iTargetInput),
-						ev->m_flDelay,
-						STRING(ev->m_iParameter) );
-
-			CGMsg( 2, CON_GROUP_IO_SYSTEM, "%s", szBuffer );
-			ADD_DEBUG_HISTORY( HISTORY_ENTITY_IO, szBuffer );
-		}
-		else
-		{
-			char szBuffer[256];
-			Q_snprintf( szBuffer,
-						sizeof(szBuffer),
-						"(%0.2f) output: (%s,%s) -> (%s,%s)(%s)\n",
-#ifdef TF_DLL
-						engine->GetServerTime(),
-#else
-						gpGlobals->curtime,
-#endif
-						pCaller ? STRING(pCaller->m_iClassname) : "NULL",
-						pCaller ? STRING(pCaller->GetEntityName()) : "NULL", STRING(ev->m_iTarget),
-						STRING(ev->m_iTargetInput),
-						STRING(ev->m_iParameter) );
-
-			CGMsg( 2, CON_GROUP_IO_SYSTEM, "%s", szBuffer );
-			ADD_DEBUG_HISTORY( HISTORY_ENTITY_IO, szBuffer );
+			if ( ev->m_flDelay )
+			{
+				char szBuffer[256];
+				Q_snprintf( szBuffer, sizeof(szBuffer), "(%0.2f) output: (%s,%s) -> (%s,%s,%.1f)(%s)\n", gpGlobals->curtime, pCaller ? STRING(pCaller->m_iClassname) : "NULL", pCaller ? STRING(pCaller->GetEntityName()) : "NULL", STRING(ev->m_iTarget), STRING(ev->m_iTargetInput), ev->m_flDelay, STRING(ev->m_iParameter) );
+				CGMsg( 2, CON_GROUP_IO_SYSTEM, "%s", szBuffer );
+				ADD_DEBUG_HISTORY( HISTORY_ENTITY_IO, szBuffer );
+			}
+			else
+			{
+				char szBuffer[256];
+				Q_snprintf( szBuffer, sizeof(szBuffer), "(%0.2f) output: (%s,%s) -> (%s,%s)(%s)\n", gpGlobals->curtime, pCaller ? STRING(pCaller->m_iClassname) : "NULL", pCaller ? STRING(pCaller->GetEntityName()) : "NULL", STRING(ev->m_iTarget), STRING(ev->m_iTargetInput), STRING(ev->m_iParameter) );
+				CGMsg( 2, CON_GROUP_IO_SYSTEM, "%s", szBuffer );
+				ADD_DEBUG_HISTORY( HISTORY_ENTITY_IO, szBuffer );
+			}
 		}
 
 		if ( pCaller && pCaller->m_debugOverlays & OVERLAY_MESSAGE_BIT)
@@ -404,7 +388,7 @@ void CBaseEntityOutput::AddEventAction( CEventAction *pEventAction )
 
 void CBaseEntityOutput::RemoveEventAction( CEventAction *pEventAction )
 {
-	CEventAction *pAction = GetActionList();
+	CEventAction *pAction = GetFirstAction();
 	CEventAction *pPrevAction = NULL;
 	while ( pAction )
 	{
@@ -481,6 +465,17 @@ int CBaseEntityOutput::Restore( IRestore &restore, int elementCount )
 	}
 
 	return 1;
+}
+
+const CEventAction *CBaseEntityOutput::GetActionForTarget( string_t iSearchTarget ) const
+{
+	for ( CEventAction *ev = m_ActionList; ev != NULL; ev = ev->m_pNext )
+	{
+		if ( ev->m_iTarget == iSearchTarget )
+			return ev;
+	}
+
+	return NULL;
 }
 
 int CBaseEntityOutput::NumberOfElements( void )
@@ -1139,7 +1134,7 @@ void CEventQueue::CancelEventOn( CBaseEntity *pTarget, const char *sInputName )
 		bool bDelete = false;
 		if (pCur->m_pEntTarget == pTarget)
 		{
-			if ( !Q_strncmp( STRING(pCur->m_iTargetInput), sInputName, strlen(sInputName) ) )
+			if ( StringHasPrefixCaseSensitive( STRING(pCur->m_iTargetInput), sInputName ) )
 			{
 				// Found a matching event; delete it from the queue.
 				bDelete = true;
@@ -1176,7 +1171,7 @@ bool CEventQueue::HasEventPending( CBaseEntity *pTarget, const char *sInputName 
 			if ( !sInputName )
 				return true;
 
-			if ( !Q_strncmp( STRING(pCur->m_iTargetInput), sInputName, strlen(sInputName) ) )
+			if ( StringHasPrefixCaseSensitive( STRING(pCur->m_iTargetInput), sInputName ) )
 				return true;
 		}
 
@@ -1727,8 +1722,6 @@ bool variant_t::Convert( fieldtype_t newType, CBaseEntity *pSelf, CBaseEntity *p
 //-----------------------------------------------------------------------------
 const char *variant_t::ToString( void ) const
 {
-	COMPILE_TIME_ASSERT( sizeof(string_t) == sizeof(intp) );
-
 	static char szBuf[512];
 
 	switch (fieldType)
@@ -1783,12 +1776,7 @@ const char *variant_t::ToString( void ) const
 
 	case FIELD_EHANDLE:
 		{
-#ifdef MAPBASE
-			// This is a really bad idea.
-			const char *pszName = (Entity()) ? Entity()->GetDebugName() : "<<null entity>>";
-#else
 			const char *pszName = (Entity()) ? STRING(Entity()->GetEntityName()) : "<<null entity>>";
-#endif
 			Q_strncpy( szBuf, pszName, 512 );
 			return (szBuf);
 		}
@@ -1845,6 +1833,7 @@ typedescription_t variant_t::m_SaveVector[] =
 {
 	// Just here to shut up ClassCheck
 //	DEFINE_ARRAY( vecVal, FIELD_FLOAT, 3 ),
+//  DEFINE_FIELD( vecSave, FIELD_CLASSCHECK_IGNORE ) // do this or else we get a warning about multiply-defined fields
 
 	DEFINE_FIELD( vecSave, FIELD_VECTOR ),
 };
@@ -1861,6 +1850,7 @@ struct variant_savevmatrix_t
 };
 typedescription_t variant_t::m_SaveVMatrix[] =
 {
+//  DEFINE_FIELD( matSave, FIELD_CLASSCHECK_IGNORE ) // do this or else we get a warning about multiply-defined fields
 	DEFINE_FIELD( matSave, FIELD_VMATRIX ),
 };
 typedescription_t variant_t::m_SaveVMatrixWorldspace[] =

@@ -35,6 +35,7 @@
 #include "datacache/imdlcache.h"
 #include "basemultiplayerplayer.h"
 #include "voice_gamemgr.h"
+#include "tier1/fmtstr.h"
 
 #ifdef TF_DLL
 #include "tf_player.h"

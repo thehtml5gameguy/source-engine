@@ -1403,8 +1403,11 @@ SQInteger function_stub(HSQUIRRELVM vm)
 
 	sq_resetobject(&pSquirrelVM->lastError_);
 
-	(*pFunc->m_pfnBinding)(pFunc->m_pFunction, instance, params.Base(), nargs,
-		pFunc->m_desc.m_ReturnType == FIELD_VOID ? nullptr : &retval);
+	if(pFunc->m_pFunction)
+	{
+		(*pFunc->m_pfnBinding)(pFunc->m_pFunction, instance, params.Base(), nargs,
+			pFunc->m_desc.m_ReturnType == FIELD_VOID ? nullptr : &retval);
+	}
 
 	if (!sq_isnull(pSquirrelVM->lastError_))
 	{

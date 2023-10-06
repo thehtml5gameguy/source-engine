@@ -29,6 +29,7 @@ class CEventAction
 {
 public:
 	CEventAction( const char *ActionData = NULL );
+	CEventAction( const CEventAction &p_EventAction );
 
 	string_t m_iTarget; // name of the entity(s) to cause the action in
 	string_t m_iTargetInput; // the name of the action to fire
@@ -79,10 +80,9 @@ public:
 	/// Delete every single action in the action list. 
 	void DeleteAllElements( void ) ;
 
-	// Needed for ReplaceOutput, hopefully not bad
-	CEventAction *GetActionList() { return m_ActionList; }
-	void SetActionList(CEventAction *newlist) { m_ActionList = newlist; }
+	CEventAction *GetFirstAction() { return m_ActionList; }
 
+	const CEventAction *GetActionForTarget( string_t iSearchTarget ) const;
 protected:
 	variant_t m_Value;
 	CEventAction *m_ActionList;
@@ -133,7 +133,7 @@ public:
 // Template specializations for type Vector, so we can implement Get, Set, and Init differently.
 //
 template<>
-class CEntityOutputTemplate<class Vector, FIELD_VECTOR> : public CBaseEntityOutput
+class CEntityOutputTemplate< Vector, FIELD_VECTOR> : public CBaseEntityOutput
 {
 public:
 	void Init( const Vector &value )
@@ -178,7 +178,7 @@ public:
 
 
 template<>
-class CEntityOutputTemplate<class Vector, FIELD_POSITION_VECTOR> : public CBaseEntityOutput
+class CEntityOutputTemplate< Vector, FIELD_POSITION_VECTOR> : public CBaseEntityOutput
 {
 public:
 	void Init( const Vector &value )

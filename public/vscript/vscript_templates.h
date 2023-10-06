@@ -73,10 +73,63 @@ FUNC_GENERATE_ALL( DEFINE_CONST_MEMBER_FUNC_TYPE_DEDUCER );
 //-----------------------------------------------------------------------------
 
 template <typename FUNCPTR_TYPE>
-inline void *ScriptConvertFuncPtrToVoid( FUNCPTR_TYPE pFunc )
+inline void* ScriptConvertFreeFuncPtrToVoid( FUNCPTR_TYPE pFunc )
 {
+#if defined(_PS3) || defined(POSIX)
+	COMPILE_TIME_ASSERT( sizeof( FUNCPTR_TYPE ) == sizeof( void* ) * 2 || sizeof( FUNCPTR_TYPE ) == sizeof( void* ) );
+	
+	if ( sizeof( FUNCPTR_TYPE ) == 4 )
+	{
+		union FuncPtrConvertMI
+		{
+			FUNCPTR_TYPE pFunc;
+			void* stype;
+		};
+
+		FuncPtrConvertMI convert;
+		convert.pFunc = pFunc;
+		return convert.stype;
+	}
+	else
+	{
+		union FuncPtrConvertMI
+		{
+			FUNCPTR_TYPE pFunc;
+			struct
+			{
+				void* stype;
+				intptr_t iToc;
+			} fn8;
+		};
+
+		FuncPtrConvertMI convert;
+		convert.fn8.iToc = 0;
+		convert.pFunc = pFunc;
+		if ( !convert.fn8.iToc )
+			return convert.fn8.stype;
+		
+		Assert( 0 );
+		DebuggerBreak();
+		return 0;
+	}
+#else
+	return ( void* ) pFunc;
+#endif
+}
+
+template <typename FUNCPTR_TYPE>
+inline void* ScriptConvertFuncPtrToVoid( FUNCPTR_TYPE pFunc )
+{
+	typedef FUNCPTR_TYPE FuncPtr_t;
+	size_t funcPtrSize = sizeof( FuncPtr_t ); funcPtrSize;
+
+#if defined(_PS3) || defined(POSIX)
+	return ScriptConvertFreeFuncPtrToVoid<FUNCPTR_TYPE>( pFunc );
+#else
+
 	if ( ( sizeof( FUNCPTR_TYPE ) == sizeof( void * ) ) )
 	{
+		// simple inheritance
 		union FuncPtrConvert
 		{
 			void *p;
@@ -87,9 +140,11 @@ inline void *ScriptConvertFuncPtrToVoid( FUNCPTR_TYPE pFunc )
 		convert.pFunc = pFunc;
 		return convert.p;
 	}
-#if defined( _MSC_VER )
-	else if ( ( sizeof( FUNCPTR_TYPE ) == sizeof( void * ) + sizeof( int ) ) )
+#if MSVC
+	else if ( ( IsPlatformWindowsPC32() && ( sizeof( FUNCPTR_TYPE ) == sizeof( void * ) + sizeof( int ) ) ) ||
+	          ( IsPlatformWindowsPC64() && ( sizeof( FUNCPTR_TYPE ) == sizeof( void * ) + sizeof( int ) * 2 ) ) )
 	{
+		// multiple and virtual inheritance
 		struct MicrosoftUnknownMFP
 		{
 			void *p;
@@ -110,8 +165,10 @@ inline void *ScriptConvertFuncPtrToVoid( FUNCPTR_TYPE pFunc )
 		}
 		AssertMsg( 0, "Function pointer must be from primary vtable" );
 	}
-	else if ( ( sizeof( FUNCPTR_TYPE ) == sizeof( void * ) + ( sizeof( int ) * 3 ) ) )
+	else if ( ( IsPlatformWindowsPC32() && ( sizeof( FUNCPTR_TYPE ) == sizeof( void * ) + ( sizeof( int ) * 3 ) ) ) || 
+	          ( IsPlatformWindowsPC64() && ( sizeof( FUNCPTR_TYPE ) == sizeof( void * ) + ( sizeof( int ) * 4 ) ) ) )
 	{
+		// unknown_inheritance case
 		struct MicrosoftUnknownMFP
 		{
 			void *p;
@@ -137,25 +194,29 @@ inline void *ScriptConvertFuncPtrToVoid( FUNCPTR_TYPE pFunc )
 #elif defined( GNUC )
 	else if ( ( sizeof( FUNCPTR_TYPE ) == sizeof( void * ) + sizeof( int ) ) )
 	{
+		AssertMsg( 0, "Note: This path has not been verified yet. See comments below in #else case." );
+	
 		struct GnuMFP
 		{
 			union
 			{
 				void *funcadr;		// If vtable_index_2 is even, then this is the function pointer.
-				int vtable_index_2;		// If vtable_index_2 is odd, then (vtable_index_2 - 1) * 2 is the index into the vtable.
+				int vtable_index_2;		// If vtable_index_2 is odd, then this = vindex*2+1.
 			};
-			int delta;	// Offset from this-ptr to vtable
+			int delta;
 		};
-
+	
 		GnuMFP *p = (GnuMFP*)&pFunc;
-		if ( p->delta == 0 )
+		if ( p->vtable_index_2 & 1 )
 		{
-			// No need to check whether this is a direct function pointer or not,
-			// this gets converted back to a "proper" member-function pointer in
-			// ScriptConvertFuncPtrFromVoid() to get invoked
+			char **delta = (char**)p->delta;
+			char *pCur = *delta + (p->vtable_index_2+1)/2;
+			return (void*)( pCur + 4 );
+		}
+		else
+		{
 			return p->funcadr;
 		}
-		AssertMsg( 0, "Function pointer must be from primary vtable" );
 	}
 #else
 #error "Need to implement code to crack non-offset member function pointer case"
@@ -194,11 +255,59 @@ inline void *ScriptConvertFuncPtrToVoid( FUNCPTR_TYPE pFunc )
 	else
 		AssertMsg( 0, "Member function pointer not supported. Why on earth are you using virtual inheritance!?" );
 	return NULL;
+#endif
+}
+
+template <typename FUNCPTR_TYPE>
+inline FUNCPTR_TYPE ScriptConvertFreeFuncPtrFromVoid( void* p )
+{
+#if defined(_PS3) || defined(POSIX)
+	COMPILE_TIME_ASSERT( sizeof( FUNCPTR_TYPE ) == sizeof(void*)*2 || sizeof( FUNCPTR_TYPE ) == sizeof(void*) );
+
+	if ( sizeof( FUNCPTR_TYPE ) == 4 )
+	{
+		union FuncPtrConvertMI
+		{
+			FUNCPTR_TYPE pFunc;
+			void* stype;
+		};
+
+		FuncPtrConvertMI convert;
+		convert.pFunc = 0;
+		convert.stype = p;
+		return convert.pFunc;
+	}
+	else
+	{
+		union FuncPtrConvertMI
+		{
+			FUNCPTR_TYPE pFunc;
+			struct
+			{
+				void* stype;
+				intptr_t iToc;
+			} fn8;
+		};
+
+		FuncPtrConvertMI convert;
+		convert.pFunc = 0;
+		convert.fn8.stype = p;
+		convert.fn8.iToc = 0;
+		return convert.pFunc;
+	}
+
+
+#else
+	return (FUNCPTR_TYPE) p;
+#endif
 }
 
 template <typename FUNCPTR_TYPE>
 inline FUNCPTR_TYPE ScriptConvertFuncPtrFromVoid( void *p )
 {
+#if defined(_PS3) || defined(POSIX)
+	return ScriptConvertFreeFuncPtrFromVoid<FUNCPTR_TYPE>( p );
+#else
 	if ( ( sizeof( FUNCPTR_TYPE ) == sizeof( void * ) ) )
 	{
 		union FuncPtrConvert
@@ -277,11 +386,14 @@ inline FUNCPTR_TYPE ScriptConvertFuncPtrFromVoid( void *p )
 		convert.mfp.delta = 0;
 		return convert.pFunc;
 	}
+#elif defined( POSIX )
+	AssertMsg( 0, "Note: This path has not been implemented yet." );
 #else
 #error "Need to implement code to crack non-offset member function pointer case"
 #endif
 	Assert( 0 );
 	return NULL;
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -326,18 +438,17 @@ inline FUNCPTR_TYPE ScriptConvertFuncPtrFromVoid( void *p )
 	class CNonMemberScriptBinding##N \
 	{ \
 	public: \
- 		static bool Call( void *pFunction, void *pContext, ScriptVariant_t *pArguments, int nArguments, ScriptVariant_t *pReturn ) \
+ 		static bool Call( void* pFunction, void *pContext, ScriptVariant_t *pArguments, int nArguments, ScriptVariant_t *pReturn ) \
  		{ \
 			Assert( nArguments == N ); \
 			Assert( pReturn ); \
 			Assert( !pContext ); \
-			Assert( pFunction ); \
 			\
-			if ( nArguments != N || pReturn || !pContext || !pFunction ) \
+			if ( nArguments != N || !pReturn || pContext || !pFunction ) \
 			{ \
 				return false; \
 			} \
-			*pReturn = ((FUNC_TYPE)pFunction)( SCRIPT_BINDING_ARGS_##N ); \
+			*pReturn = (ScriptConvertFreeFuncPtrFromVoid<FUNC_TYPE>(pFunction))( SCRIPT_BINDING_ARGS_##N ); \
 			if ( pReturn->m_type == FIELD_VECTOR ) \
 				pReturn->m_pVector = new Vector(*pReturn->m_pVector); \
  			return true; \
@@ -348,18 +459,17 @@ inline FUNCPTR_TYPE ScriptConvertFuncPtrFromVoid( void *p )
 	class CNonMemberScriptBinding##N<FUNC_TYPE, void FUNC_BASE_TEMPLATE_FUNC_PARAMS_PASSTHRU_##N> \
 	{ \
 	public: \
-		static bool Call( void *pFunction, void *pContext, ScriptVariant_t *pArguments, int nArguments, ScriptVariant_t *pReturn ) \
+		static bool Call( void* pFunction, void *pContext, ScriptVariant_t *pArguments, int nArguments, ScriptVariant_t *pReturn ) \
 		{ \
 			Assert( nArguments == N ); \
 			Assert( !pReturn ); \
 			Assert( !pContext ); \
-			Assert( pFunction ); \
 			\
-			if ( nArguments != N || pReturn || !pContext || !pFunction ) \
+			if ( nArguments != N || pReturn || pContext || !pFunction ) \
 			{ \
 				return false; \
 			} \
-			((FUNC_TYPE)pFunction)( SCRIPT_BINDING_ARGS_##N ); \
+			(ScriptConvertFreeFuncPtrFromVoid<FUNC_TYPE>(pFunction))( SCRIPT_BINDING_ARGS_##N ); \
 			return true; \
 		} \
 	}; \
@@ -368,14 +478,13 @@ inline FUNCPTR_TYPE ScriptConvertFuncPtrFromVoid( void *p )
 	class CMemberScriptBinding##N \
 	{ \
 	public: \
- 		static bool Call( void *pFunction, void *pContext, ScriptVariant_t *pArguments, int nArguments, ScriptVariant_t *pReturn ) \
+ 		static bool Call( void* pFunction, void *pContext, ScriptVariant_t *pArguments, int nArguments, ScriptVariant_t *pReturn ) \
  		{ \
 			Assert( nArguments == N ); \
 			Assert( pReturn ); \
 			Assert( pContext ); \
-			Assert( pFunction ); \
 			\
-			if ( nArguments != N || pReturn || !pContext || !pFunction ) \
+			if ( nArguments != N || !pReturn || !pContext || !pFunction ) \
 			{ \
 				return false; \
 			} \
@@ -390,12 +499,11 @@ inline FUNCPTR_TYPE ScriptConvertFuncPtrFromVoid( void *p )
 	class CMemberScriptBinding##N<OBJECT_TYPE_PTR, FUNC_TYPE, void FUNC_BASE_TEMPLATE_FUNC_PARAMS_PASSTHRU_##N> \
 	{ \
 	public: \
-		static bool Call( void *pFunction, void *pContext, ScriptVariant_t *pArguments, int nArguments, ScriptVariant_t *pReturn ) \
+		static bool Call( void* pFunction, void *pContext, ScriptVariant_t *pArguments, int nArguments, ScriptVariant_t *pReturn ) \
 		{ \
 			Assert( nArguments == N ); \
 			Assert( !pReturn ); \
 			Assert( pContext ); \
-			Assert( pFunction ); \
 			\
 			if ( nArguments != N || pReturn || !pContext || !pFunction ) \
 			{ \

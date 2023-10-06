@@ -1346,32 +1346,6 @@ float CBaseEntity::GetMaxOutputDelay( const char *pszOutput )
 //}
 #endif // MAPBASE_VSCRIPT
 
-CBaseEntityOutput *CBaseEntity::FindNamedOutput( const char *pszOutput )
-{
-	if ( pszOutput == NULL )
-		return NULL;
-
-	datamap_t *dmap = GetDataDescMap();
-	while ( dmap )
-	{
-		int fields = dmap->dataNumFields;
-		for ( int i = 0; i < fields; i++ )
-		{
-			typedescription_t *dataDesc = &dmap->dataDesc[i];
-			if ( ( dataDesc->fieldType == FIELD_CUSTOM ) && ( dataDesc->flags & FTYPEDESC_OUTPUT ) )
-			{
-				CBaseEntityOutput *pOutput = ( CBaseEntityOutput * )( ( int )this + ( int )dataDesc->fieldOffset[0] );
-				if ( !Q_stricmp( dataDesc->externalName, pszOutput ) )
-				{
-					return pOutput;
-				}
-			}
-		}
-		dmap = dmap->baseMap;
-	}
-	return NULL;
-}
-
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -1386,6 +1360,32 @@ void CBaseEntity::FireNamedOutput( const char *pszOutput, variant_t variant, CBa
 		pOutput->FireOutput( variant, pActivator, pCaller, flDelay );
 		return;
 	}
+}
+
+CBaseEntityOutput *CBaseEntity::FindNamedOutput( const char *pszOutput )
+{
+	if ( pszOutput == NULL )
+		return NULL;
+
+	datamap_t *dmap = GetDataDescMap();
+	while ( dmap )
+	{
+		int fields = dmap->dataNumFields;
+		for ( int i = 0; i < fields; i++ )
+		{
+			typedescription_t *dataDesc = &dmap->dataDesc[i];
+			if ( ( dataDesc->fieldType == FIELD_CUSTOM ) && ( dataDesc->flags & FTYPEDESC_OUTPUT ) )
+			{
+				CBaseEntityOutput *pOutput = ( CBaseEntityOutput * )( ( intp )this + ( intp )dataDesc->fieldOffset[0] );
+				if ( !Q_stricmp( dataDesc->externalName, pszOutput ) )
+				{
+					return pOutput;
+				}
+			}
+		}
+		dmap = dmap->baseMap;
+	}
+	return NULL;
 }
 
 void CBaseEntity::Activate( void )
@@ -7251,8 +7251,14 @@ bool CBaseEntity::CallScriptFunction(const char* pFunctionName, ScriptVariant_t*
 
 	if (hFunc)
 	{
-		m_ScriptScope.Call(hFunc, pFunctionReturn);
-		m_ScriptScope.ReleaseFunction(hFunc);
+		// Kind of a hack to make glados.nut easier to work with...
+		// When a script function is called by connecting the function to an entity output,
+		// the entity who is connected to the output and who has this function in their scope
+		// will be set to 'owninginstance'. In this situation, it can be a different instance than 'self'.
+		g_pScriptVM->SetValue( "owninginstance", ScriptVariant_t( GetScriptInstance() ) );
+		m_ScriptScope.Call( hFunc, pFunctionReturn );
+		m_ScriptScope.ReleaseFunction( hFunc );
+		g_pScriptVM->ClearValue( "owninginstance" );
 
 		UPDATE_VMPROFILE
 
@@ -7295,59 +7301,59 @@ bool CBaseEntity::CallScriptFunctionHandle(HSCRIPT hFunc, ScriptVariant_t* pFunc
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-void CBaseEntity::ConnectOutputToScript(const char* pszOutput, const char* pszScriptFunc)
+void CBaseEntity::ConnectOutputToScript( const char *pszOutput, const char *pszScriptFunc )
 {
-	CBaseEntityOutput* pOutput = FindNamedOutput(pszOutput);
-	if (!pOutput)
+	CBaseEntityOutput *pOutput = FindNamedOutput( pszOutput );
+	if ( !pOutput )
 	{
-		DevMsg(2, "Script failed to find output \"%s\"\n", pszOutput);
+		DevMsg( 2, "Script failed to find output \"%s\"\n", pszOutput );
 		return;
 	}
 
-	string_t iszSelf = AllocPooledString("!self"); // @TODO: cache this [4/25/2008 tom]
-	CEventAction* pAction = pOutput->GetActionList();
-	while (pAction)
+	string_t iszSelf = AllocPooledString( "!self" ); // @TODO: cache this [4/25/2008 tom]
+	CEventAction *pAction = pOutput->GetFirstAction();
+	while ( pAction )
 	{
-		if (pAction->m_iTarget == iszSelf &&
-			pAction->m_flDelay == 0 &&
-			pAction->m_nTimesToFire == EVENT_FIRE_ALWAYS &&
-			V_strcmp(STRING(pAction->m_iTargetInput), "CallScriptFunction") == 0 &&
-			V_strcmp(STRING(pAction->m_iParameter), pszScriptFunc) == 0)
+		if ( pAction->m_iTarget == iszSelf && 
+			 pAction->m_flDelay == 0 && 
+			 pAction->m_nTimesToFire == EVENT_FIRE_ALWAYS && 
+			 V_strcmp( STRING(pAction->m_iTargetInput), "CallScriptFunction" ) == 0 &&
+			 V_strcmp( STRING(pAction->m_iParameter), pszScriptFunc ) == 0 )
 		{
 			return;
 		}
 		pAction = pAction->m_pNext;
 	}
 
-	pAction = new CEventAction(NULL);
+	pAction = new CEventAction( NULL );
 	pAction->m_iTarget = iszSelf;
-	pAction->m_iTargetInput = AllocPooledString("CallScriptFunction");
-	pAction->m_iParameter = AllocPooledString(pszScriptFunc);
-	pOutput->AddEventAction(pAction);
+	pAction->m_iTargetInput = AllocPooledString( "CallScriptFunction" );
+	pAction->m_iParameter = AllocPooledString( pszScriptFunc );
+	pOutput->AddEventAction( pAction );
 }
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-void CBaseEntity::DisconnectOutputFromScript(const char* pszOutput, const char* pszScriptFunc)
+void CBaseEntity::DisconnectOutputFromScript( const char *pszOutput, const char *pszScriptFunc )
 {
-	CBaseEntityOutput* pOutput = FindNamedOutput(pszOutput);
-	if (!pOutput)
+	CBaseEntityOutput *pOutput = FindNamedOutput( pszOutput );
+	if ( !pOutput )
 	{
-		DevMsg(2, "Script failed to find output \"%s\"\n", pszOutput);
+		DevMsg( 2, "Script failed to find output \"%s\"\n", pszOutput );
 		return;
 	}
 
-	string_t iszSelf = AllocPooledString("!self"); // @TODO: cache this [4/25/2008 tom]
-	CEventAction* pAction = pOutput->GetActionList();
-	while (pAction)
+	string_t iszSelf = AllocPooledString( "!self" ); // @TODO: cache this [4/25/2008 tom]
+	CEventAction *pAction = pOutput->GetFirstAction();
+	while ( pAction )
 	{
-		if (pAction->m_iTarget == iszSelf &&
-			pAction->m_flDelay == 0 &&
-			pAction->m_nTimesToFire == EVENT_FIRE_ALWAYS &&
-			V_strcmp(STRING(pAction->m_iTargetInput), "CallScriptFunction") == 0 &&
-			V_strcmp(STRING(pAction->m_iParameter), pszScriptFunc) == 0)
+		if ( pAction->m_iTarget == iszSelf && 
+			 pAction->m_flDelay == 0 && 
+			 pAction->m_nTimesToFire == EVENT_FIRE_ALWAYS && 
+			 V_strcmp( STRING(pAction->m_iTargetInput), "CallScriptFunction" ) == 0 &&
+			 V_strcmp( STRING(pAction->m_iParameter), pszScriptFunc ) == 0 )
 		{
-			pOutput->RemoveEventAction(pAction);
+			pOutput->RemoveEventAction( pAction );
 			delete pAction;
 			return;
 		}
