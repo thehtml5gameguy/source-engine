@@ -1160,7 +1160,6 @@ void CBaseEntity::VPhysicsUpdate( IPhysicsObject *pPhysics )
 		{
 			if ( GetMoveParent() )
 			{
-				DevWarning("Updating physics on object in hierarchy %s!\n", GetClassname());
 				return;
 			}
 			Vector origin;

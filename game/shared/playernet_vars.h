@@ -40,10 +40,15 @@ struct fogparams_t
 
 	CNetworkVar( float, startLerpTo );
 	CNetworkVar( float, endLerpTo );
+	CNetworkVar( float, maxdensityLerpTo );
 	CNetworkVar( float, lerptime );
 	CNetworkVar( float, duration );
 	CNetworkVar( bool, enable );
 	CNetworkVar( bool, blend );
+
+	CNetworkVar( float, ZoomFogScale );
+
+	CNetworkVar( float, HDRColorScale );
 };
 
 // Crappy. Needs to be here because it wants to use 
