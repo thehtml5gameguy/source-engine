@@ -12,14 +12,14 @@ def options(opt):
 	return
 
 games = {
-	'hl2': ['client_base.vpc', 'client_hl2.vpc'],
-	'hl2mp': ['client_base.vpc', 'client_hl2mp.vpc'],
-	'hl1': ['client_base.vpc', 'client_hl1.vpc'],
-	'episodic': ['client_base.vpc', 'client_episodic.vpc'],
-	'portal': ['client_base.vpc', 'client_portal.vpc'],
-	'hl1mp': ['client_base.vpc', 'client_hl1mp.vpc'],
-	'cstrike': ['client_base.vpc', 'client_cstrike.vpc'],
-	'dod': ['client_base.vpc', 'client_dod.vpc']
+	'hl2': ['client_base.vpc', 'client_hl2.vpc', 'imgui/imgui_system.vpc'],
+	'hl2mp': ['client_base.vpc', 'client_hl2mp.vpc', 'imgui/imgui_system.vpc'],
+	'hl1': ['client_base.vpc', 'client_hl1.vpc', 'imgui/imgui_system.vpc'],
+	'episodic': ['client_base.vpc', 'client_episodic.vpc', 'imgui/imgui_system.vpc'],
+	'portal': ['client_base.vpc', 'client_portal.vpc', 'imgui/imgui_system.vpc'],
+	'hl1mp': ['client_base.vpc', 'client_hl1mp.vpc', 'imgui/imgui_system.vpc'],
+	'cstrike': ['client_base.vpc', 'client_cstrike.vpc', 'imgui/imgui_system.vpc'],
+	'dod': ['client_base.vpc', 'client_dod.vpc', 'imgui/imgui_system.vpc']
 }
 
 def configure(conf):
