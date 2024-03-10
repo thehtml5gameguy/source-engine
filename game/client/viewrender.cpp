@@ -1913,6 +1913,9 @@ void CViewRender::RenderView( const CViewSetup &view, int nClearFlags, int whatT
 
 	m_CurrentView = view;
 
+	if ( building_cubemaps.GetBool() )
+		m_CurrentView.fov = RAD2DEG( 2.0f * atanf( 64.0f / ( 64 - 0.5f ) ) );
+
 	C_BaseAnimating::AutoAllowBoneAccess boneaccess( true, true );
 	VPROF( "CViewRender::RenderView" );
 	tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "%s", __FUNCTION__ );
@@ -4379,6 +4382,9 @@ void CRendering3dView::DrawTranslucentRenderables( bool bInSkybox, bool bShadowD
 		DrawTranslucentRenderablesNoWorld( bInSkybox );
 		return;
 	}
+
+	if( !m_pWorldListInfo )
+		return;
 
 	VPROF_BUDGET( "CViewRender::DrawTranslucentRenderables", "DrawTranslucentRenderables" );
 	int iPrevLeaf = info.m_LeafCount - 1;

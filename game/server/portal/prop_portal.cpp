@@ -35,14 +35,13 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-
-#define MINIMUM_FLOOR_PORTAL_EXIT_VELOCITY 50.0f
-#define MINIMUM_FLOOR_TO_FLOOR_PORTAL_EXIT_VELOCITY 225.0f
-#define MINIMUM_FLOOR_PORTAL_EXIT_VELOCITY_PLAYER 300.0f
-#define MAXIMUM_PORTAL_EXIT_VELOCITY 1000.0f
-
 CCallQueue *GetPortalCallQueue();
 
+
+ConVar sv_portal_minimum_floor_exit_velocity("sv_portal_minimum_floor_exit_velocity", "50.0", FCVAR_REPLICATED );
+ConVar sv_portal_minimum_floor_to_floor_exit_velocity("sv_portal_minimum_floor_to_floor_exit_velocity", "225.0", FCVAR_REPLICATED );
+ConVar sv_portal_minimum_floor_exit_velocity_player("sv_portal_minimum_floor_exit_velocity_player", "300.0", FCVAR_REPLICATED );
+ConVar sv_portal_maximum_exit_velocity("sv_portal_maximum_exit_velocity", "1000.0", FCVAR_REPLICATED );
 
 ConVar sv_portal_debug_touch("sv_portal_debug_touch", "0", FCVAR_REPLICATED );
 ConVar sv_portal_placement_never_fail("sv_portal_placement_never_fail", "0", FCVAR_REPLICATED | FCVAR_CHEAT );
@@ -1133,27 +1132,27 @@ void CProp_Portal::TeleportTouchingEntity( CBaseEntity *pOther )
 		{
 			if ( bPlayer )
 			{
-				if( vNewVelocity.z < MINIMUM_FLOOR_PORTAL_EXIT_VELOCITY_PLAYER ) 
-					vNewVelocity.z = MINIMUM_FLOOR_PORTAL_EXIT_VELOCITY_PLAYER;
+				if( vNewVelocity.z < sv_portal_minimum_floor_exit_velocity_player.GetFloat() ) 
+					vNewVelocity.z = sv_portal_minimum_floor_exit_velocity_player.GetFloat();
 			}
 			else
 			{
 				if( LocalPortalDataAccess.Placement.vForward.z > 0.7071f )
 				{
-					if( vNewVelocity.z < MINIMUM_FLOOR_TO_FLOOR_PORTAL_EXIT_VELOCITY ) 
-						vNewVelocity.z = MINIMUM_FLOOR_TO_FLOOR_PORTAL_EXIT_VELOCITY;
+					if( vNewVelocity.z < sv_portal_minimum_floor_to_floor_exit_velocity.GetFloat() ) 
+						vNewVelocity.z = sv_portal_minimum_floor_to_floor_exit_velocity.GetFloat();
 				}
 				else
 				{
-					if( vNewVelocity.z < MINIMUM_FLOOR_PORTAL_EXIT_VELOCITY )
-						vNewVelocity.z = MINIMUM_FLOOR_PORTAL_EXIT_VELOCITY;
+					if( vNewVelocity.z < sv_portal_minimum_floor_exit_velocity.GetFloat() )
+						vNewVelocity.z = sv_portal_minimum_floor_exit_velocity.GetFloat();
 				}
 			}
 		}
 
 
-		if ( vNewVelocity.LengthSqr() > (MAXIMUM_PORTAL_EXIT_VELOCITY * MAXIMUM_PORTAL_EXIT_VELOCITY)  )
-			vNewVelocity *= (MAXIMUM_PORTAL_EXIT_VELOCITY / vNewVelocity.Length());
+		if ( vNewVelocity.LengthSqr() > (sv_portal_maximum_exit_velocity.GetFloat() * sv_portal_maximum_exit_velocity.GetFloat())  )
+			vNewVelocity *= (sv_portal_maximum_exit_velocity.GetFloat() / vNewVelocity.Length());
 	}
 
 	//untouch the portal(s), will force a touch on destination after the teleport

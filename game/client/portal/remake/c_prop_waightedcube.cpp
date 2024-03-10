@@ -8,18 +8,19 @@
  */
 
 #include "cbase.h"
+#include "c_physicsprop.h"
 #include "beam_shared.h"
 #include "mathlib/vector.h"
 #include "portal_util_shared.h"
 
-class C_PortalLaser : public C_BaseAnimating
+class C_PropWeightedCube : public C_PhysicsProp
 {
 public:
-	DECLARE_CLASS( C_PortalLaser, C_BaseAnimating );
+	DECLARE_CLASS( C_PropWeightedCube, C_PhysicsProp );
 	DECLARE_CLIENTCLASS();
 
-	C_PortalLaser( void );
-	~C_PortalLaser( void );
+	C_PropWeightedCube( void );
+	~C_PropWeightedCube( void );
 
 	void Spawn( void );
 	void ClientThink( void );
@@ -36,52 +37,35 @@ private:
 	int m_iAttachmentId;
 
 	////////////
-	// True class members from pdb
-	//C_PortalBeamHelper m_beamHelper;
-	C_BaseEntity m_hReflector;
 	//CNewParticleEffect m_pSparkEffect;
-	Vector m_vStartPoint;
-	Vector m_vEndPoint;
 	bool m_bLaserOn;
 	bool m_bIsLethal;
-	bool m_bIsAutoAiming;
-	bool m_bShouldSpark;
-	bool m_bUseParentDir;
-
-	QAngle m_angParentAngles;
 	////////////
 };
 
-LINK_ENTITY_TO_CLASS( env_portal_laser, C_PortalLaser );
-IMPLEMENT_CLIENTCLASS_DT( C_PortalLaser, DT_PortalLaser, CPortalLaser )
-	RecvPropEHandle( RECVINFO( m_hReflector )),
-	RecvPropVector( RECVINFO( m_vStartPoint ) ),
-	RecvPropVector( RECVINFO( m_vEndPoint ) ),
+LINK_ENTITY_TO_CLASS( prop_weighted_cube, C_PropWeightedCube );
+IMPLEMENT_CLIENTCLASS_DT( C_PropWeightedCube, DT_PropWeightedCube, CPropWeightedCube )
 	RecvPropBool( RECVINFO( m_bLaserOn ) ), 
 	RecvPropBool( RECVINFO( m_bIsLethal ) ), 
-	RecvPropBool( RECVINFO( m_bIsAutoAiming ) ), 
-	RecvPropBool( RECVINFO( m_bShouldSpark ) ), 
-	RecvPropBool( RECVINFO( m_bUseParentDir ) ),
-	RecvPropVector( RECVINFO( m_angParentAngles ) ),
 END_RECV_TABLE()
 
 
-C_PortalLaser::C_PortalLaser( void )
+C_PropWeightedCube::C_PropWeightedCube( void )
 	: m_filterBeams( this, UTIL_PlayerByIndex( 1 ), COLLISION_GROUP_DEBRIS )
 	//m_pSparkEffect()
 {
 }
 
-C_PortalLaser::~C_PortalLaser( void )
+C_PropWeightedCube::~C_PropWeightedCube( void )
 {
 	LaserOff();
 	if( m_pBeam )
 		m_pBeam->Remove();
 }
 
-void C_PortalLaser::Spawn()
+void C_PropWeightedCube::Spawn()
 {
-	SetThink( &C_PortalLaser::ClientThink );
+	SetThink( &C_PropWeightedCube::ClientThink );
 	SetNextClientThink( CLIENT_THINK_ALWAYS );
 
 	m_pBeam = NULL;
@@ -89,7 +73,7 @@ void C_PortalLaser::Spawn()
 	BaseClass::Spawn();
 }
 
-void C_PortalLaser::ClientThink()
+void C_PropWeightedCube::ClientThink()
 {
 	if( m_bLaserOn )
 		LaserOn();
@@ -97,13 +81,13 @@ void C_PortalLaser::ClientThink()
 		LaserOff();
 }
 
-void C_PortalLaser::LaserOff()
+void C_PropWeightedCube::LaserOff()
 {
 	if( m_pBeam )
 		m_pBeam->AddEffects( EF_NODRAW );
 }
 
-void C_PortalLaser::LaserOn()
+void C_PropWeightedCube::LaserOn()
 {
 	if ( !IsBoneAccessAllowed() )
 	{
@@ -111,6 +95,10 @@ void C_PortalLaser::LaserOn()
 		return;
 	}
 
+	Vector vecMuzzle;
+	QAngle angMuzzleDir;
+	GetAttachment( m_iAttachmentId, vecMuzzle, angMuzzleDir );
+	
 	QAngle angAimDir = GetAbsAngles();
 	Vector vecAimDir;
 	AngleVectors ( angAimDir, &vecAimDir );
@@ -132,7 +120,7 @@ void C_PortalLaser::LaserOn()
 		m_pBeam->SetHaloScale( 5.5f );
 		m_pBeam->SetBeamFlag( FBEAM_REVERSED );
 		m_pBeam->SetCollisionGroup( COLLISION_GROUP_NONE );
-		m_pBeam->PointsInit( m_vStartPoint + vecAimDir, m_vEndPoint );
+		m_pBeam->PointsInit( vecMuzzle + vecAimDir, vecMuzzle );
 		m_pBeam->SetStartEntity( this );
 	}
 	else
@@ -144,12 +132,12 @@ void C_PortalLaser::LaserOn()
 	Vector vEndPoint;
 	float fEndFraction;
 	Ray_t rayPath;
-	rayPath.Init( m_vStartPoint, m_vStartPoint + vecAimDir * 8192 );
+	rayPath.Init( vecMuzzle, vecMuzzle + vecAimDir * 8192 );
 
 	if ( UTIL_Portal_TraceRay_Beam( rayPath, MASK_SHOT, &m_filterBeams, &fEndFraction ) )
-		vEndPoint = m_vStartPoint + vecAimDir * 8192; // Trace went through portal and endpoint is unknown
+		vEndPoint = vecMuzzle + vecAimDir * 8192; // Trace went through portal and endpoint is unknown
 	else
-		vEndPoint = m_vStartPoint + vecAimDir * 8192 * fEndFraction; // Trace hit a wall
+		vEndPoint = vecMuzzle + vecAimDir * 8192 * fEndFraction; // Trace hit a wall
 
-	m_pBeam->PointsInit( vEndPoint, m_vStartPoint );
+	m_pBeam->PointsInit( vEndPoint, vecMuzzle );
 }

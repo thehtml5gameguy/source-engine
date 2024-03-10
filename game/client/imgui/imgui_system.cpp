@@ -140,7 +140,7 @@ public:
 	CDummyOverlayPanel()
 	{
 		SetVisible( false );
-		SetParent( enginevgui->GetPanel( PANEL_GAMEUIDLL ) );
+		SetParent( enginevgui->GetPanel( PANEL_CLIENTDLL ) );
 		SetPaintEnabled( true );
 		SetCursor( vgui::dc_arrow );
 
@@ -188,18 +188,17 @@ public:
 			io.AddInputCharacter( code );
 	}
 	
+	// always pass keycodes to imgui, WantCaptureKeyboard should NOT affect whether or not we do this
 	void OnKeyCodePressed( vgui::KeyCode code ) override
 	{
 		auto& io = ImGui::GetIO();
-		if ( io.WantCaptureKeyboard )
-			io.AddKeyEvent( IMGUI_KEY_TABLE[code], true );
+		io.AddKeyEvent( IMGUI_KEY_TABLE[code], true );
 	}
 	
 	void OnKeyCodeReleased( vgui::KeyCode code ) override
 	{
 		auto& io = ImGui::GetIO();
-		if ( io.WantCaptureKeyboard )
-			io.AddKeyEvent( IMGUI_KEY_TABLE[code], false );
+		io.AddKeyEvent( IMGUI_KEY_TABLE[code], false );
 	}
 	
 	void Paint() override
@@ -231,6 +230,11 @@ bool CDearImGuiSystem::Init()
 	ImGui::SetAllocatorFunctions( ImGui_MemAlloc, ImGui_MemFree, nullptr );
 	ImFontAtlas *atlas = new ImFontAtlas();
 	ImGui::CreateContext( atlas );
+
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
 	ImGui_ImplSource_Init();
 
 	SetStyle();
@@ -379,7 +383,8 @@ void CDearImGuiSystem::UnregisterWindowFactories( IImguiWindow **ppWindows, int 
 //---------------------------------------------------------------------------------------//
 IImguiWindow *CDearImGuiSystem::FindWindow( const char *szName )
 {
-	if ( auto it = m_ImGuiWindows.Find( szName ); it != m_ImGuiWindows.InvalidIndex() )
+	int it = m_ImGuiWindows.Find( szName );
+	if ( it != m_ImGuiWindows.InvalidIndex() )
 		return m_ImGuiWindows[it];
 	return nullptr;
 }
@@ -606,7 +611,7 @@ static ConCommand imgui_input_end(
 CON_COMMAND_F( imgui_toggle_menu, "Toggles the imgui menu bar", FCVAR_CLIENTDLL )
 {
 	g_ImguiSystem.ToggleMenuBar();
-	if ( g_ImguiSystem.IsDrawingMenuBar() )
+	if ( g_ImguiSystem.IsDrawingMenuBar() )  
 		g_ImguiSystem.PushInputContext();
 	else
 		g_ImguiSystem.PopInputContext();
@@ -616,7 +621,7 @@ template <bool ON>
 void CC_ToggleMenu( const CCommand &args )
 {
 	g_ImguiSystem.SetDrawMenuBar( ON );
-	if constexpr ( ON )
+	if ( ON )
 		g_ImguiSystem.PushInputContext();
 	else
 		g_ImguiSystem.PopInputContext();

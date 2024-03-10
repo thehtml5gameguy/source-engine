@@ -14,6 +14,7 @@
 */
 
 #include "cbase.h"
+#include "convar.h"
 #include "portal_player.h"
 #include "portal_gamerules.h"
 #include "gamerules.h"
@@ -121,11 +122,11 @@ void ClientGamePrecache( void )
 	CBaseEntity::PrecacheModel( "models/portals/portal2.mdl" );
 }
 
-
+ConVar sv_respawn_in_sp( "sv_respawn_in_sp", "0" );
 // called by ClientKill and DeadThink
 void respawn( CBaseEntity *pEdict, bool fCopyCorpse )
 {
-	if (gpGlobals->coop || gpGlobals->deathmatch)
+	if (sv_respawn_in_sp.GetBool() || gpGlobals->coop || gpGlobals->deathmatch)
 	{
 		if ( fCopyCorpse )
 		{

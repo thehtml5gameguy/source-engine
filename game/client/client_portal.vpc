@@ -27,6 +27,8 @@ $Project "Client (Portal)"
 		$File	"c_team_objectiveresource.cpp"
 		$File	"c_team_objectiveresource.h"
 
+		$File	"imgui\test_window.cpp"
+
 		$Folder	"HL2 DLL"
 		{
 			$File 	"episodic\flesh_internal_material_proxy.cpp"
@@ -196,6 +198,7 @@ $Project "Client (Portal)"
 		$Folder	"Portal re2"
 		{
 			$File	"portal\remake\c_env_portal_laser.cpp"
+			$File	"portal\remake\c_prop_waightedcube.cpp"
 			$File	"portal2\c_prop_floor_button.cpp"
 
 			$File	"vgui_movie_display.cpp"

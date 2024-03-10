@@ -31,6 +31,5 @@ private:
 	int m_iTargetAttachment;
 
 	bool m_bActivated;
-    bool m_bAlreadyActivated;
 	bool m_bRusted;
 };

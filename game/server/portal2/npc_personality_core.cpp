@@ -1,3 +1,10 @@
+/**
+ * @file npc_personality_core.cpp
+ * @brief Placeholder code for personality cores.
+ * 
+ * @author RocketLauncher21 https://github.com/RocketLauncher21/Portal2ASW
+ */
+
 #include "cbase.h"
 #include "ai_baseactor.h"
 #include "ai_basenpc.h"

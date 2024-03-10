@@ -66,6 +66,9 @@ private:
 	CNetworkVar( bool, m_bUseParentDir );
 	CNetworkVector( m_angParentAngles );
 	QAngle m_angPortalExitAngles;
+
+	// Custom fields
+	CBaseEntity* m_LastEntity;
 };
 
 // Start of our data description for the class
@@ -229,9 +232,14 @@ void CPortalLaser::StrikeThink( void )
 	{
 		Ray_t rayDmg;
 		Vector vForward;
-		AngleVectors( GetAbsAngles(), &vForward, NULL, NULL );
-		Vector vEndPoint = EyePosition() + vForward*8192;
-		rayDmg.Init( EyePosition(), vEndPoint );
+		Vector vStartPoint;
+		GetAttachment(m_iLaserAttachment, vStartPoint, &vForward);
+
+		// Source.
+		m_vStartPoint = vStartPoint;
+
+		m_vEndPoint = m_vStartPoint + vForward*8192;
+		rayDmg.Init( m_vStartPoint, m_vEndPoint );
 		rayDmg.m_IsRay = true;
 		trace_t traceDmg;
 
@@ -241,6 +249,27 @@ void CPortalLaser::StrikeThink( void )
 		float flRequiredParameter = 2.0f;
 		CProp_Portal* pFirstPortal = UTIL_Portal_FirstAlongRay( rayDmg, flRequiredParameter );
 		UTIL_Portal_TraceRay_Bullets( pFirstPortal, rayDmg, MASK_VISIBLE_AND_NPCS, &filter, &traceDmg, false );
+
+		if ( m_LastEntity && traceDmg.m_pEnt != m_LastEntity )
+		{
+			if( FClassnameIs( m_LastEntity, "prop_weighted_cube" ) && UTIL_IsReflectiveCube( m_LastEntity ) )
+			{
+				//Set the cube to activate
+				CPropWeightedCube* pCube = assert_cast<CPropWeightedCube*>( m_LastEntity );
+				if( pCube )
+				{
+					pCube->SetActivated( false );
+				}
+			}
+			else if( FClassnameIs( m_LastEntity, "prop_laser_catcher" ))
+			{
+				CPropLaserCatcher* pCatcher = assert_cast<CPropLaserCatcher*>( m_LastEntity );
+				if( pCatcher )
+				{
+					pCatcher->SetActivated( false );
+				}
+			}
+		}
 
 		if ( traceDmg.m_pEnt )
 		{
@@ -254,11 +283,11 @@ void CPortalLaser::StrikeThink( void )
 			else if( FClassnameIs( traceDmg.m_pEnt, "prop_weighted_cube" ) && UTIL_IsReflectiveCube( traceDmg.m_pEnt ) )
 			{
 				//Set the cube to activate
-				// TODO: Make lasers come from cubes
 				CPropWeightedCube* pCube = assert_cast<CPropWeightedCube*>( traceDmg.m_pEnt );
 				if( pCube )
 				{
 					pCube->SetActivated( true );
+					m_LastEntity = traceDmg.m_pEnt;
 				}
 			}
 			else if( FClassnameIs( traceDmg.m_pEnt, "prop_laser_catcher" ))
@@ -267,6 +296,7 @@ void CPortalLaser::StrikeThink( void )
 				if( pCatcher )
 				{
 					pCatcher->SetActivated( true );
+					m_LastEntity = traceDmg.m_pEnt;
 				}
 			}
 		}

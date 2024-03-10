@@ -24,7 +24,6 @@ BEGIN_DATADESC( CPropLaserCatcher )
 END_DATADESC()
 
 CPropLaserCatcher::CPropLaserCatcher()
-	: m_bAlreadyActivated( false )
 {
 }
 
@@ -91,17 +90,12 @@ void CPropLaserCatcher::Spawn( void )
 
 void CPropLaserCatcher::SetActivated( bool bActivate )
 {
-	m_bActivated = bActivate;
-}
-
-/**
- * @brief Updates the laser catcher
- */
-void CPropLaserCatcher::CatcherThink( void )
-{
-	if( m_bActivated )
+	if( m_bActivated != bActivate )
 	{
-		if( !m_bAlreadyActivated )
+		m_bActivated = bActivate;
+		SetCatcherSkin();
+
+		if( bActivate )
 		{
 			m_OnPowered.FireOutput( this, this );
 
@@ -111,17 +105,11 @@ void CPropLaserCatcher::CatcherThink( void )
 			EmitSound("prop_laser_catcher.powerloop");
 			StopSound("prop_laser_catcher.poweroff");
 
-			SetCatcherSkin();
 			SetSequence( m_PowerOnSequence );
 			SetPlaybackRate( 1.0f );
 			UseClientSideAnimation();
 		}
-		m_bAlreadyActivated = true;
-		m_bActivated = false; // This is a dumb way of making the catcher power off.
-	}
-	else
-	{
-		if( m_bAlreadyActivated )
+		else
 		{
 			m_OnUnpowered.FireOutput( this, this );
 
@@ -130,13 +118,17 @@ void CPropLaserCatcher::CatcherThink( void )
 			EmitSound("prop_laser_catcher.poweroff");
 			StopSound("prop_laser_catcher.powerloop");
 
-			SetCatcherSkin();
 			SetSequence( m_IdleSequence );
 			SetPlaybackRate( 1.0f );
 			UseClientSideAnimation();
 		}
-
-		m_bAlreadyActivated = false;
 	}
+}
+
+/**
+ * @brief Updates the laser catcher
+ */
+void CPropLaserCatcher::CatcherThink( void )
+{
 	SetNextThink( gpGlobals->curtime + 0.2f );
 }

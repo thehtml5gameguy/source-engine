@@ -366,6 +366,8 @@ $Project "Server (Portal)"
 			$File	"portal2\prop_button.cpp"
 			$File	"portal2\point_changelevel.cpp"
 			$File	"portal2\npc_personality_core.cpp"
+			$File	"portal2\npc_wheatley_boss.cpp"
+			$File	"portal2\indicator_panel.cpp"
 
 			$File   "movie_display.cpp"
 

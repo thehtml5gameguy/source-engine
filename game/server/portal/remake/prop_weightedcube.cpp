@@ -11,9 +11,11 @@
 #include "datacache/imdlcache.h"
 #include "portal_util_shared.h"
 
-#include <cstddef>
+// Laser implementation.
+#include "prop_laser_catcher.h"
+#include "physicsshadowclone.h"
 
-LINK_ENTITY_TO_CLASS( prop_weighted_cube, CPropWeightedCube );
+#include <cstddef>
 
 BEGIN_DATADESC( CPropWeightedCube )
 
@@ -28,8 +30,16 @@ BEGIN_DATADESC( CPropWeightedCube )
 	DEFINE_INPUTFUNC( FIELD_VOID, "Dissolve", InputDissolve ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "SilentDissolve", InputDissolve ), // InputSilentDissolve
 
+	DEFINE_THINKFUNC( StrikeThink ),
 
 END_DATADESC()
+
+IMPLEMENT_SERVERCLASS_ST(CPropWeightedCube, DT_PropWeightedCube)
+	SendPropBool( SENDINFO( m_bLaserOn ) ), 
+	SendPropBool( SENDINFO( m_bIsLethal ) ), 
+END_SEND_TABLE()
+
+LINK_ENTITY_TO_CLASS( prop_weighted_cube, CPropWeightedCube );
 
 const char *CUBE_MODEL = "models/props/metal_box.mdl";
 const char *CUBE_REFLECT_MODEL = "models/props/reflection_cube.mdl";
@@ -231,7 +241,22 @@ void CPropWeightedCube::SetCubeType( void )
 //-----------------------------------------------------------------------------
 void CPropWeightedCube::SetActivated( bool bActivate )
 {
+	if(m_bActivated == bActivate)
+		return;
+
 	m_bActivated = bActivate;
+
+	if(bActivate && m_nCubeType == CUBE_REFLECTIVE)
+	{
+		m_bLaserOn = true;
+		SetThink(&CPropWeightedCube::StrikeThink);
+		SetNextThink( gpGlobals->curtime );
+	}
+	else 
+	{
+		m_bLaserOn = false;
+		SetThink(nullptr);
+	}
 
 	SetCubeSkin();
 }
@@ -546,6 +571,92 @@ void CPropWeightedCube::Spawn( void )
 	SetCollisionGroup( COLLISION_GROUP_NONE ); // COLLISION_GROUP_WEIGHTED_CUBE Fixme don't collide with debris
 
 	SetFadeDistance( -1.0f, 0.0f );
+}
+
+extern ConVar sv_portal_laser_normal_update;
+extern ConVar sv_portal_laser_high_precision_update;
+//-----------------------------------------------------------------------------
+// Purpose: Toggle the laser on and off
+// TODO: Not how it should be implemented!
+//-----------------------------------------------------------------------------
+void CPropWeightedCube::StrikeThink( void )
+{
+	Ray_t rayDmg;
+	Vector vForward;
+	AngleVectors( GetAbsAngles(), &vForward, NULL, NULL );
+	Vector vEndPoint = EyePosition() + vForward*8192;
+	rayDmg.Init( EyePosition(), vEndPoint );
+	rayDmg.m_IsRay = true;
+	trace_t traceDmg;
+
+	// This version reorients through portals
+	CTraceFilterSimple subfilter( this, COLLISION_GROUP_NONE );
+	CTraceFilterTranslateClones filter ( &subfilter );
+	float flRequiredParameter = 2.0f;
+	CProp_Portal* pFirstPortal = UTIL_Portal_FirstAlongRay( rayDmg, flRequiredParameter );
+	UTIL_Portal_TraceRay_Bullets( pFirstPortal, rayDmg, MASK_VISIBLE_AND_NPCS, &filter, &traceDmg, false );
+
+	if ( m_LastEntity && traceDmg.m_pEnt != m_LastEntity )
+		{
+			if( FClassnameIs( m_LastEntity, "prop_weighted_cube" ) && UTIL_IsReflectiveCube( m_LastEntity ) )
+			{
+				//Set the cube to activate
+				CPropWeightedCube* pCube = assert_cast<CPropWeightedCube*>( m_LastEntity );
+				if( pCube )
+				{
+					pCube->SetActivated( false );
+				}
+			}
+			else if( FClassnameIs( m_LastEntity, "prop_laser_catcher" ))
+			{
+				CPropLaserCatcher* pCatcher = assert_cast<CPropLaserCatcher*>( m_LastEntity );
+				if( pCatcher )
+				{
+					pCatcher->SetActivated( false );
+				}
+			}
+		}
+
+		if ( traceDmg.m_pEnt )
+		{
+			if ( traceDmg.m_pEnt->IsPlayer() )
+			{
+				CTakeDamageInfo dmgInfo;
+				dmgInfo.SetDamage( 1 );
+				dmgInfo.SetDamageType( DMG_ENERGYBEAM );
+				traceDmg.m_pEnt->TakeDamage( dmgInfo );
+			}
+			else if( FClassnameIs( traceDmg.m_pEnt, "prop_weighted_cube" ) && UTIL_IsReflectiveCube( traceDmg.m_pEnt ) )
+			{
+				//Set the cube to activate
+				CPropWeightedCube* pCube = assert_cast<CPropWeightedCube*>( traceDmg.m_pEnt );
+				if( pCube )
+				{
+					pCube->SetActivated( true );
+					m_LastEntity = traceDmg.m_pEnt;
+				}
+			}
+			else if( FClassnameIs( traceDmg.m_pEnt, "prop_laser_catcher" ))
+			{
+				CPropLaserCatcher* pCatcher = assert_cast<CPropLaserCatcher*>( traceDmg.m_pEnt );
+				if( pCatcher )
+				{
+					pCatcher->SetActivated( true );
+					m_LastEntity = traceDmg.m_pEnt;
+				}
+			}
+		}
+
+	// FIXME:
+	bool m_bFromReflectedCube = false;
+
+	float fTime;
+	if(m_bFromReflectedCube)
+		fTime = sv_portal_laser_normal_update.GetFloat();
+	else
+		fTime = sv_portal_laser_high_precision_update.GetFloat();
+
+	SetNextThink(gpGlobals->curtime + fTime);
 }
 
 //-----------------------------------------------------------------------------

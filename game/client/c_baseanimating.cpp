@@ -3591,6 +3591,10 @@ void C_BaseAnimating::DoAnimationEvents( CStudioHdr *pStudioHdr )
 	if ( bIsInvisible && !clienttools->IsInRecordingMode() )
 		return;
 
+#if !defined( CSTRIKE15 )
+	// We already handle muzzle flash events in CSTRIKE15.
+	// Also this code has a bug in that it always uses attachment 1 instead of by name.
+
 	// add in muzzleflash effect
 	if ( ShouldMuzzleFlash() )
 	{
@@ -3598,6 +3602,8 @@ void C_BaseAnimating::DoAnimationEvents( CStudioHdr *pStudioHdr )
 		
 		ProcessMuzzleFlashEvent();
 	}
+
+#endif
 
 	// If we're invisible, don't process animation events.
 	if ( bIsInvisible )
@@ -3616,7 +3622,7 @@ void C_BaseAnimating::DoAnimationEvents( CStudioHdr *pStudioHdr )
 	if ( nSeqNum >= nStudioNumSeq )
 	{
 		// This can happen e.g. while reloading Heavy's shotgun, switch to the minigun.
-		Warning( "%s[%d]: Playing sequence %d but there's only %d in total?\n", GetDebugName(), entindex(), nSeqNum, nStudioNumSeq );
+		//Warning( "%s[%d]: Playing sequence %d but there's only %d in total?\n", GetDebugName(), entindex(), nSeqNum, nStudioNumSeq );
 		return;
 	}
 
@@ -3717,8 +3723,8 @@ void C_BaseAnimating::DoAnimationEvents( CStudioHdr *pStudioHdr )
 			if (ScriptHookFireEvent( GetAbsOrigin(), GetAbsAngles(), pevent[ i ].event, pevent[ i ].pszOptions() ) == false)
 				continue;
 #endif
-				
-				
+
+
 			FireEvent( GetAbsOrigin(), GetAbsAngles(), pevent[ i ].event, pevent[ i ].pszOptions() );
 		}
 
@@ -3740,14 +3746,16 @@ void C_BaseAnimating::DoAnimationEvents( CStudioHdr *pStudioHdr )
 		{
 			if ( watch )
 			{
-				Msg( "%i (seq: %d) FE %i Normal cycle %f, prev %f ev %f (time %.3f)\n",
+				Msg( "%i (seq: %d/%s) FE %i Normal cycle %f, prev %f ev %f (time %.3f) (options %s)\n",
 					gpGlobals->tickcount,
 					GetSequence(),
+					GetSequenceActivityName( GetSequence() ),
 					pevent[i].event,
 					pevent[i].cycle,
 					m_flPrevEventCycle,
 					flEventCycle,
-					gpGlobals->curtime );
+					gpGlobals->curtime,
+					pevent[ i ].pszOptions() );
 			}
 
 #ifdef MAPBASE_VSCRIPT
@@ -3759,7 +3767,7 @@ void C_BaseAnimating::DoAnimationEvents( CStudioHdr *pStudioHdr )
 		}
 	}
 
-	m_flPrevEventCycle = flEventCycle;
+	m_flPrevEventCycle = GetCycle();
 }
 
 #ifdef MAPBASE_VSCRIPT

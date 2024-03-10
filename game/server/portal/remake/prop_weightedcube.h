@@ -86,6 +86,7 @@ class CPropWeightedCube : public CPhysicsProp
 {
 public:
 	DECLARE_CLASS( CPropWeightedCube, CPhysicsProp );
+	DECLARE_SERVERCLASS();
 	DECLARE_DATADESC();
 
 	CPropWeightedCube();
@@ -116,6 +117,8 @@ public:
 		return m_hLaser.Get() != NULL;
 	}
 
+	void StrikeThink( void );
+
 	static void CreatePortalWeightedCube( WeightedCubeType_e objectType, bool bAtCursorPosition = true, const Vector &position = vec3_origin );
 
 private:
@@ -137,6 +140,14 @@ private:
 	bool m_bNewSkins;
 
 	EHANDLE m_hLaser;
+
+	// TODO: Laser vars don't belong here, remove.
+	CNetworkVar( bool, m_bLaserOn );
+	CNetworkVar( bool, m_bIsLethal );
+
+	CBaseEntity* m_LastEntity;
+
+	//
 };
 
 bool UTIL_IsReflectiveCube( CBaseEntity *pEntity );
