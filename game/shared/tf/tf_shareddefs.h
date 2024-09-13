@@ -298,7 +298,7 @@ enum
 };
 
 extern const char *g_aWeaponNames[];
-extern int g_aWeaponDamageTypes[];
+extern unsigned int g_aWeaponDamageTypes[];
 
 int GetWeaponId( const char *pszWeaponName );
 #ifdef GAME_DLL
