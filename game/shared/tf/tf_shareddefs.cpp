@@ -206,7 +206,7 @@ int g_aWeaponDamageTypes[] =
 
 	// This is a special entry that must match with TF_WEAPON_COUNT
 	// to protect against updating the weapon list without updating this list
-	TF_DMG_SENTINEL_VALUE
+	(unsigned)TF_DMG_SENTINEL_VALUE
 };
 
 const char *g_szProjectileNames[] =
