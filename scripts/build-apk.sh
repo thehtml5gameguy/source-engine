@@ -1,4 +1,4 @@
-export ICON=tf.png
+export ICON=tf2.png
 export PACKAGE=tf_port
 export APP_NAME="Team Fortress 2 (2008)"
 cd srceng-mod-launcher
