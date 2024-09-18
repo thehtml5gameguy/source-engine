@@ -693,6 +693,7 @@ void OverrideMaterialSystemConfig( MaterialSystem_Config_t &config )
 	// enable/disable flashlight support based on mod (user can also set this explicitly)
 	// FIXME: this is only here because dxsupport_override.cfg is currently broken
 	ConVarRef mat_supportflashlight( "mat_supportflashlight" );
+	/*
 	if ( mat_supportflashlight.GetInt() == -1 )
 	{
 		const char * gameName = COM_GetModDirectory();
@@ -707,6 +708,7 @@ void OverrideMaterialSystemConfig( MaterialSystem_Config_t &config )
 			mat_supportflashlight.SetValue( true );
 		}
 	}
+	*/
 	config.m_bSupportFlashlight = mat_supportflashlight.GetBool();
 
 	// apply the settings in the material system

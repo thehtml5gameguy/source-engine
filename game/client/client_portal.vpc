@@ -13,7 +13,7 @@ $Configuration
 {
 	$Compiler
 	{
-		$AdditionalIncludeDirectories	".\hl2;.\hl2\elements;.\portal;.\portal\vgui;$SRCDIR\game\shared\hl2;$SRCDIR\game\shared\Multiplayer;$SRCDIR\gcsdk\steamextra;$SRCDIR\game\shared\portal;$BASE"
+		$AdditionalIncludeDirectories	".\hl2;.\hl2\elements;.\portal;.\episodic;.\portal\vgui;$SRCDIR\game\shared\hl2;$SRCDIR\game\shared\episodic;$SRCDIR\game\shared\Multiplayer;$SRCDIR\gcsdk\steamextra;$SRCDIR\game\shared\portal;$BASE"
 		$PreprocessorDefinitions		"$BASE;PORTAL;HL2_EPISODIC;HL2_CLIENT_DLL"
 	}
 }
@@ -76,7 +76,7 @@ $Project "Client (Portal)"
 			$File	"hl2\c_weapon_crossbow.cpp"
 			$File	"episodic\c_weapon_hopwire.cpp"
 			$File	"hl2\c_weapon_gravitygun.cpp"
-			$File   "episodic\c_vehicle_jeep_episodic.cpp"
+			$File	"episodic\c_vehicle_jeep_episodic.cpp"
 			$File	"hl2\hud_radar.cpp"
  			$File	"hl2\c_weapon_stunstick.cpp"
 			$File	"$SRCDIR\game\shared\hl2\citadel_effects_shared.h"
@@ -84,6 +84,12 @@ $Project "Client (Portal)"
 			$File	"death.cpp"
 			$File	"$SRCDIR\game\shared\hl2\env_headcrabcanister_shared.cpp"
 			$File	"$SRCDIR\game\shared\hl2\env_headcrabcanister_shared.h"
+			$File	"$SRCDIR\game\shared\episodic\npc_advisor_shared.h"
+			$File	"episodic\c_npc_advisor.cpp"
+			$File	"episodic\episodic_screenspaceeffects.cpp"
+			$File	"episodic\episodic_screenspaceeffects.h"
+			$File	"episodic\c_prop_scalable.cpp"
+			$File	"episodic\c_npc_puppet.cpp"
 			$File	"hl2\fx_antlion.cpp"
 			$File	"hl2\fx_bugbait.cpp"
 			$File	"hl2\fx_hl2_impacts.cpp"

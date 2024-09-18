@@ -208,7 +208,7 @@ void C_EnvProjectedTexture::UpdateLight( void )
 	
 	if ( !m_bForceUpdate && r_flashlightenableculling.GetBool() )
 	{
-		bVisible = IsBBoxVisible();		
+		bVisible = IsBBoxVisible();
 	}
 
 	if ( m_bState == false || !bVisible )

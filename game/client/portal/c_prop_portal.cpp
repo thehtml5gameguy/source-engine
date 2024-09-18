@@ -542,6 +542,7 @@ void C_Prop_Portal::OnPreDataChanged( DataUpdateType_t updateType )
 //ConVar r_portal_light_innerangle( "r_portal_light_innerangle", "90.0", FCVAR_CLIENTDLL );
 //ConVar r_portal_light_outerangle( "r_portal_light_outerangle", "90.0", FCVAR_CLIENTDLL );
 //ConVar r_portal_light_forward( "r_portal_light_forward", "0.0", FCVAR_CLIENTDLL );
+ConVar r_portal_use_dlights( "r_portal_use_dlights", "0", FCVAR_CLIENTDLL );
 
 void C_Prop_Portal::OnDataChanged( DataUpdateType_t updateType )
 {
@@ -616,7 +617,12 @@ void C_Prop_Portal::OnDataChanged( DataUpdateType_t updateType )
 				TransformedLighting.m_LightShadowHandle = CLIENTSHADOW_INVALID_HANDLE;
 			}
 
-			
+			// Turn on the dlight
+			if ( r_portal_use_dlights.GetBool() )
+			{
+				if( pFakeLight == NULL )
+					pFakeLight = effects->CL_AllocDlight( LIGHT_INDEX_TE_DYNAMIC + entindex() ); //is there a difference between DLight and ELight when only lighting ents?
+			}
 
 
 			if( pFakeLight != NULL )

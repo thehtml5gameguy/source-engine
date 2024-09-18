@@ -13,7 +13,7 @@ $Configuration
 {
 	$Compiler
 	{
-		$AdditionalIncludeDirectories	"$BASE;$SRCDIR\game\shared\portal;.\hl2;.\episodic;$SRCDIR\game\shared\Multiplayer;$SRCDIR\game\shared\hl2;$SRCDIR\game\shared\portal;.\portal;.\portal2"
+		$AdditionalIncludeDirectories	"$BASE;$SRCDIR\game\shared\portal;.\hl2;.\episodic;$SRCDIR\game\shared\episodic;$SRCDIR\game\shared\Multiplayer;$SRCDIR\game\shared\hl2;$SRCDIR\game\shared\portal;.\portal;.\portal2"
 		$PreprocessorDefinitions		"$BASE;PORTAL;PORTAL2;HL2_DLL;HL2_EPISODIC;USES_SAVERESTORE"
 	}
 }
@@ -52,6 +52,12 @@ $Project "Server (Portal)"
 			$File	"hl2\ai_allymanager.cpp"
 			$File	"hl2\ai_behavior_actbusy.cpp"
 			$File	"hl2\ai_behavior_actbusy.h"
+			$File	"$SRCDIR\game\shared\episodic\npc_advisor_shared.h"
+			$File	"episodic\npc_advisor.cpp"
+			$File	"episodic\npc_combine_cannon.cpp"
+			$File	"episodic\npc_magnusson.cpp"
+			$File	"episodic\prop_scalable.cpp"
+			$File	"episodic\npc_puppet.cpp"
 			$File	"hl2\ai_behavior_operator.cpp"
 			$File	"hl2\ai_behavior_operator.h"
 			$File	"episodic\ai_behavior_alyx_injured.cpp"

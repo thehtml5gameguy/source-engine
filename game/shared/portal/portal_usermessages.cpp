@@ -47,9 +47,14 @@ void RegisterUserMessages()
 	usermessages->Register( "LogoTimeMsg", 4 );
 	usermessages->Register( "AchievementEvent", -1 );
 
+#ifdef HL2_EPISODIC
+	usermessages->Register( "UpdateJalopyRadar", -1 );
+#endif
+
 
 	//new stuff for portal
-	usermessages->Register( "EntityPortalled", sizeof( long ) + sizeof( long ) + sizeof( Vector ) + sizeof( QAngle ) ); //something got teleported through a portal
+	// int32 because WriteLong actually uses int32
+	usermessages->Register( "EntityPortalled", sizeof( int32 ) + sizeof( int32 ) + sizeof( Vector ) + sizeof( QAngle ) ); //something got teleported through a portal
 	usermessages->Register( "KillCam", -1 );
 
 	// Voting
