@@ -73,7 +73,7 @@ jobs:
     - name: Build dedicated windows-i386
       run: |
         git submodule init && git submodule update
-        ./waf.bat configure -T release --prefix=bin -d
+        ./waf.bat configure -T release --build-games=tf_port --prefix=bin -d
         ./waf.bat install 
 
     - name: 'Upload Artifact'
@@ -90,7 +90,8 @@ jobs:
     - name: Build dedicated windows-amd64
       run: |
         git submodule init && git submodule update
-        ./waf.bat configure -T release --prefix=bin -d
+        ./waf.bat configure -T release --build-games=tf_port --prefix=bin -d
+        type D:\a\source-engine\source-engine\build\config.log
         ./waf.bat install
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
