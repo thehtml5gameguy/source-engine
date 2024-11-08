@@ -885,5 +885,6 @@ void CTFStatsSummaryPanel::OnDeactivate()
 
 CON_COMMAND( showstatsdlg, "Shows the player stats dialog" )
 {
-	GStatsSummaryPanel()->ShowModal();
+	Warning("Please, no....\n")
+	//GStatsSummaryPanel()->ShowModal();
 }
