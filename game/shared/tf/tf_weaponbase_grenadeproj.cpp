@@ -128,6 +128,8 @@ void CTFWeaponBaseGrenadeProj::Spawn()
 {
 	m_flSpawnTime = gpGlobals->curtime;
 	BaseClass::Spawn();
+
+	AddFlag( FL_GRENADE );
 }
 
 //-----------------------------------------------------------------------------

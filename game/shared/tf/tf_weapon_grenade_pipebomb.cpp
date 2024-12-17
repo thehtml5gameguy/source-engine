@@ -518,6 +518,7 @@ ConVar tf_grenade_forcefrom_buckshot( "tf_grenade_forcefrom_buckshot", "0.5", FC
 ConVar tf_grenade_forcefrom_blast( "tf_grenade_forcefrom_blast", "0.08", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
 ConVar tf_grenade_force_sleeptime( "tf_grenade_force_sleeptime", "1.0", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );	// How long after being shot will we re-stick to the world.
 ConVar tf_pipebomb_force_to_move( "tf_pipebomb_force_to_move", "1500.0", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
+ConVar tf_pipebomb_deflect_reset_time( "tf_pipebomb_deflect_reset_time", "10.0", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
 
 //-----------------------------------------------------------------------------
 // Purpose: If we are shot after being stuck to the world, move a bit
@@ -578,4 +579,89 @@ int CTFGrenadePipebombProjectile::OnTakeDamage( const CTakeDamageInfo &info )
 	return 0;
 }
 
+#endif
+
+#ifdef GAME_DLL
+void CTFGrenadePipebombProjectile::IncrementDeflected( void )
+{
+	BaseClass::IncrementDeflected();
+
+	if ( GetDeflected() && HasStickyEffects() )
+	{
+		m_flDeflectedTime = gpGlobals->curtime + tf_pipebomb_deflect_reset_time.GetFloat();
+	}
+
+	int iTeamNumber = GetTeamNumber();
+
+	CTFPlayer *pOwner =  ToTFPlayer( GetDeflectOwner() );
+
+	if ( pOwner )
+	{
+		iTeamNumber = pOwner->GetTeamNumber();
+	}
+
+	if ( !HasStickyEffects() )
+	{
+		m_nSkin = ( iTeamNumber == TF_TEAM_BLUE ) ? 1 : 0;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Grenade was deflected.
+//-----------------------------------------------------------------------------
+void CTFGrenadePipebombProjectile::Deflected( CBaseEntity *pDeflectedBy, Vector& vecDir )
+{
+	CTFPlayer *pTFDeflector = ToTFPlayer( pDeflectedBy );
+	if ( !pTFDeflector )
+		return;
+
+	CTFPlayer* pOldOwner = NULL;
+	if ( HasStickyEffects() )
+	{
+		CTakeDamageInfo info;
+
+		float flForceMultiplier = 1.0f;
+		ITFChargeUpWeapon *pWeapon = dynamic_cast<ITFChargeUpWeapon*>( pTFDeflector->GetActiveWeapon() );
+		if ( pWeapon )
+		{
+			flForceMultiplier = RemapValClamped( ( gpGlobals->curtime - pWeapon->GetChargeBeginTime() ),
+												 0.0f,
+												 pWeapon->GetChargeMaxTime(),
+												 1.0f,
+												 2.0f );
+		}
+		Vector vecForce = vecDir * flForceMultiplier * -CTFWeaponBase::DeflectionForce( WorldAlignSize(), 90, 12.0f );
+		
+		pOldOwner = ToTFPlayer( GetThrower() );
+		info.SetAttacker( pDeflectedBy );
+		info.SetDamageForce( vecForce );
+		info.SetDamageType( DMG_SONIC );
+		info.SetWeapon( pTFDeflector->GetActiveTFWeapon() );
+		OnTakeDamage( info );
+	}
+	else
+	{
+		ChangeTeam( pTFDeflector->GetTeamNumber() );
+		SetLauncher( pTFDeflector->GetActiveWeapon() );
+		pOldOwner = ToTFPlayer( GetThrower() );
+		SetThrower( pTFDeflector );
+
+		/*
+		if ( pTFDeflector->m_Shared.IsCritBoosted() )
+		{
+			SetCritical( true );
+		}
+		*/
+	}
+
+	if ( pOldOwner )
+	{
+		pOldOwner->SpeakConceptIfAllowed( MP_CONCEPT_DEFLECTED, "projectile:1,victim:1" );
+	}
+
+	//CTFWeaponBase::SendObjectDeflectedEvent( pTFDeflector, pOldOwner, GetWeaponID(), this );
+
+	//SetDeflectOwner( pTFDeflector );
+	IncrementDeflected();
+}
 #endif

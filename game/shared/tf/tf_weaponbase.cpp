@@ -14,6 +14,7 @@
 // Server specific.
 #if !defined( CLIENT_DLL )
 #include "tf_player.h"
+#include "particle_parse.h"
 // Client specific.
 #else
 #include "vgui/ISurface.h"
@@ -2192,3 +2193,221 @@ IMaterial *CWeaponInvisProxy::GetMaterial()
 EXPOSE_INTERFACE( CWeaponInvisProxy, IMaterialProxy, "weapon_invis" IMATERIAL_PROXY_INTERFACE_VERSION );
 
 #endif // CLIENT_DLL
+
+#if defined( GAME_DLL )
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CTFWeaponBase::DeflectProjectiles()
+{
+	CTFPlayer *pOwner = ToTFPlayer( GetPlayerOwner() );
+	if ( !pOwner )
+		return false;
+
+	if ( pOwner->GetWaterLevel() == WL_Eyes )
+		return false;
+
+	Vector vecEye = pOwner->EyePosition();
+	Vector vecForward, vecRight, vecUp;
+	AngleVectors( pOwner->EyeAngles(), &vecForward, &vecRight, &vecUp );
+	Vector vecSize = GetDeflectionSize();
+	float flMaxElement = 0.0f;
+	for ( int i = 0; i < 3; ++i )
+	{
+		flMaxElement = MAX( flMaxElement, vecSize[i] );
+	}
+	Vector vecCenter = vecEye + vecForward * flMaxElement;
+
+	// Get a list of entities in the box defined by vecSize at VecCenter.
+	// We will then try to deflect everything in the box.
+	const int maxCollectedEntities = 64;
+	CBaseEntity	*pObjects[ maxCollectedEntities ];
+	int count = UTIL_EntitiesInBox( pObjects, maxCollectedEntities, vecCenter - vecSize, vecCenter + vecSize, FL_CLIENT | FL_GRENADE );
+
+//	NDebugOverlay::Box( vecCenter, -vecSize, vecSize, 0, 255, 0, 40, 3 );
+
+	bool bDeflected = false;
+	bool bDeflectedPlayer = false;
+
+	int iEnemyTeam = GetEnemyTeam( pOwner->GetTeamNumber() );
+	// What even is a Truce?
+	bool bTruce = false;/*TFGameRules() && TFGameRules()->IsTruceActive() && pOwner->IsTruceValidForEnt();*/
+
+	for ( int i = 0; i < count; i++ )
+	{
+		Msg("Entity: %s\n", pObjects[i]->GetClassname());
+		if ( pObjects[i] == pOwner )
+			continue;
+
+		if ( pObjects[i]->IsPlayer() && pObjects[i]->GetTeamNumber() == TEAM_SPECTATOR )
+			continue;
+
+		if ( !pObjects[i]->IsDeflectable() && !FClassnameIs( pObjects[i], "prop_physics" ) )
+			continue;
+
+		if ( pOwner->FVisible( pObjects[i], MASK_SOLID ) == false )
+			continue;
+
+		if ( bTruce && ( pObjects[i]->GetTeamNumber() == iEnemyTeam ) )
+			continue;
+
+		if ( pObjects[i]->IsPlayer() == true )
+		{
+			CTFPlayer *pTarget = ToTFPlayer( pObjects[i] );
+			if ( pTarget )
+			{
+				bool bRes = DeflectPlayer( pTarget, pOwner, vecForward, vecCenter, vecSize );
+				bDeflectedPlayer |= bRes;
+				bDeflected |= bRes;
+			}
+		}
+		else
+		{
+			bDeflected |= DeflectEntity( pObjects[i], pOwner, vecForward, vecCenter, vecSize );
+		}
+	}
+
+	if ( bDeflected )
+	{
+		pOwner->SpeakConceptIfAllowed( MP_CONCEPT_DEFLECTED, "victim:0" );
+		PlayDeflectionSound( bDeflectedPlayer );
+	}
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CTFWeaponBase::DeflectPlayer( CTFPlayer *pTarget, CTFPlayer *pOwner, Vector &vecForward, Vector &vecCenter, Vector &vecSize )
+{
+	return true;
+}
+
+
+//-----------------------------------------------------------------------------
+// This filter checks against friendly players, buildings, shields
+//-----------------------------------------------------------------------------
+class CTraceFilterDeflection : public CTraceFilterSimple
+{
+public:
+	DECLARE_CLASS( CTraceFilterDeflection, CTraceFilterSimple );
+	
+	CTraceFilterDeflection( const IHandleEntity *passentity, int collisionGroup, int iIgnoreTeam ) 
+		: CTraceFilterSimple( passentity, collisionGroup ), m_iIgnoreTeam( iIgnoreTeam )
+	{
+	}
+
+	virtual bool ShouldHitEntity( IHandleEntity *passentity, int contentsMask ) OVERRIDE
+	{
+		CBaseEntity *pEntity = EntityFromEntityHandle( passentity );
+		if ( !pEntity )
+			return false;
+
+		if ( pEntity->IsPlayer() )
+			return false;
+
+		if ( pEntity->IsBaseObject() )
+			return false;
+
+		if ( pEntity->IsCombatItem() )
+			return false;
+
+		return BaseClass::ShouldHitEntity( passentity, contentsMask );
+	}
+
+	int m_iIgnoreTeam;
+};
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CTFWeaponBase::DeflectEntity( CBaseEntity *pTarget, CTFPlayer *pOwner, Vector &vecForward, Vector &vecCenter, Vector &vecSize )
+{
+	Assert( pTarget );
+	Assert( pOwner );
+
+	Vector vecEye = pOwner->EyePosition();
+	Vector vecVel = pTarget->GetAbsVelocity();
+
+	// apply an impulse instead if this is a prop physics object
+	if ( FClassnameIs( pTarget, "prop_physics" ) )
+	{
+		IPhysicsObject *pPhysicsObject = pTarget->VPhysicsGetObject();
+		if ( pPhysicsObject && pTarget->CollisionProp() )
+		{
+			Vector vecDir = pTarget->WorldSpaceCenter() - vecEye;
+			VectorNormalize( vecDir );
+			float flVel = 50.0f * CTFWeaponBase::DeflectionForce( pTarget->CollisionProp()->OBBSize(), 90, 12.0f );
+			pPhysicsObject->ApplyForceOffset( vecDir * flVel, vecEye );
+		}
+		return true;
+	}
+
+
+	AngularImpulse angularimp;
+
+	CTraceFilterDeflection filter( pOwner, COLLISION_GROUP_NONE, pOwner->GetTeamNumber() );
+	trace_t tr;
+	UTIL_TraceLine( vecEye, vecEye + vecForward * MAX_TRACE_LENGTH, MASK_SOLID, &filter, &tr );
+	Vector vecDir = pTarget->WorldSpaceCenter() - tr.endpos;
+	VectorNormalize( vecDir );
+
+	// Send the entity back where it came.
+	// If we want per-entity physical deflection behavior this could move into ::Deflected
+	IPhysicsObject *pPhysicsObject = pTarget->VPhysicsGetObject();
+	if ( pPhysicsObject )
+	{
+		pPhysicsObject->GetVelocity( &vecVel, &angularimp );
+	}
+	float flVel = vecVel.Length();
+	vecVel = -flVel * vecDir;
+	if ( pPhysicsObject )
+	{
+		if ( pPhysicsObject->IsMotionEnabled() == false )
+		{
+			vecDir = pOwner->WorldSpaceCenter() - pTarget->WorldSpaceCenter();
+			VectorNormalize( vecDir );
+
+			vecVel = -flVel * vecDir;
+		}
+
+		pPhysicsObject->EnableMotion( true );
+		pPhysicsObject->SetVelocity( &vecVel, &angularimp );
+	}
+	else
+	{
+		pTarget->SetAbsVelocity( vecVel );
+	}
+
+	// Perform entity specific deflection behavior like team changing.
+	pTarget->Deflected( pOwner, vecDir );
+
+	QAngle newAngles;
+	VectorAngles( -vecDir, newAngles );
+	pTarget->SetAbsAngles( newAngles );
+
+	CDisablePredictionFiltering disabler;
+	DispatchParticleEffect( "deflect_fx", PATTACH_ABSORIGIN_FOLLOW, pTarget );
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Static deflection helper.
+//-----------------------------------------------------------------------------
+float CTFWeaponBase::DeflectionForce( const Vector &size, float damage, float scale )
+{ 
+	float force = damage * ((48 * 48 * 82.0) / (size.x * size.y * size.z)) * scale;
+
+	if ( force > 1000.0) 
+	{
+		force = 1000.0;
+	}
+
+	return force;
+}
+
+
+#endif

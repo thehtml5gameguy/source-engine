@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2004, Valve LLC, All rights reserved. ============
+//========= Copyright ï¿½ 1996-2004, Valve LLC, All rights reserved. ============
 //
 //	Weapons.
 //
@@ -159,6 +159,13 @@ class CTFWeaponBase : public CBaseCombatWeapon
 #ifdef GAME_DLL
 	virtual void	AddAssociatedObject( CBaseObject *pObject ) { }
 	virtual void	RemoveAssociatedObject( CBaseObject *pObject ) { }
+
+	virtual bool	DeflectProjectiles();
+	virtual bool	DeflectPlayer( CTFPlayer *pTarget, CTFPlayer *pOwner, Vector &vecForward, Vector &vecCenter, Vector &vecSize );
+	virtual bool	DeflectEntity( CBaseEntity *pTarget, CTFPlayer *pOwner, Vector &vecForward, Vector &vecCenter, Vector &vecSize );
+	static float	DeflectionForce( const Vector &size, float damage, float scale );
+	virtual void	PlayDeflectionSound( bool bPlayer ) {}
+	virtual Vector	GetDeflectionSize() { return Vector( 128, 128, 64 ); }
 #endif
 
 	// Utility.

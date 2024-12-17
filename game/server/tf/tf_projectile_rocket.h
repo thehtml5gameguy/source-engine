@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // TF Rocket Projectile
 //
@@ -37,6 +37,9 @@ public:
 
 	void	SetCritical( bool bCritical ) { m_bCritical = bCritical; }
 	virtual int		GetDamageType();
+
+	virtual bool	IsDeflectable() { return true; }
+	virtual void	Deflected( CBaseEntity *pDeflectedBy, Vector &vecDir );
 
 private:
 	CBaseHandle m_Scorer;

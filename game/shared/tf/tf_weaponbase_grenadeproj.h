@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======//
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======//
 //
 // Purpose: TF basic grenade projectile functionality.
 //
@@ -49,9 +49,22 @@ public:
 	void				SetCritical( bool bCritical ) { m_bCritical = bCritical; }
 	virtual int			GetDamageType();
 
+#ifdef GAME_DLL
+	virtual void		IncrementDeflected( void ) { m_iDeflected++; }
+	void				ResetDeflected( void ) { m_iDeflected = 0; }
+	int					GetDeflected( void ) { return m_iDeflected; }
+	void				SetDeflectOwner( CBaseEntity *pPlayer ) { m_hDeflectOwner = pPlayer; }
+	CBaseEntity			*GetDeflectOwner( void ) { return m_hDeflectOwner; }
+#endif
+
 private:
 
 	CTFWeaponBaseGrenadeProj( const CTFWeaponBaseGrenadeProj & );
+#ifdef GAME_DLL
+	// These should be networked.
+	int m_iDeflected;
+	CBaseEntity* m_hDeflectOwner;
+#endif
 
 	// Client specific.
 #ifdef CLIENT_DLL

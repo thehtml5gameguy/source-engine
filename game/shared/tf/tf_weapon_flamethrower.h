@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======
 //
 //
 //=============================================================================
@@ -30,7 +30,18 @@ enum FlameThrowerState_t
 	// Firing states.
 	FT_STATE_IDLE = 0,
 	FT_STATE_STARTFIRING,
-	FT_STATE_FIRING
+	FT_STATE_FIRING,
+	FT_STATE_SECONDARY,
+};
+
+enum EFlameThrowerAirblastFunction
+{
+	TF_FUNCTION_AIRBLAST_PUSHBACK					= 0x01,
+	TF_FUNCTION_AIRBLAST_PUT_OUT_TEAMMATES			= 0x02,
+	TF_FUNCTION_AIRBLAST_REFLECT_PROJECTILES		= 0x04,
+
+	TF_FUNCTION_AIRBLAST_PUSHBACK__STUN				= 0x08,			// dependent on TF_FUNCTION_AIRBLAST_PUSHBACK
+	TF_FUNCTION_AIRBLAST_PUSHBACK__VIEW_PUNCH		= 0x10,			// dependent on TF_FUNCTION_AIRBLAST_PUSHBACK
 };
 
 //=========================================================
@@ -59,6 +70,16 @@ public:
 	virtual void	WeaponReset( void );
 
 	virtual void	DestroySounds( void );
+	virtual void	Precache( void );
+
+#ifdef GAME_DLL
+	bool			CanAirBlast() const { return true; };
+
+	bool			SupportsAirBlastFunction( EFlameThrowerAirblastFunction eFunction ) const;
+	void			FireAirBlast( int iAmmoPerShot );
+
+	void			SetWeaponState( int nWeaponState );
+#endif
 
 	Vector GetVisualMuzzlePos();
 	Vector GetFlameOriginPos();
@@ -78,6 +99,12 @@ public:
 	// constant pilot light sound
 	void 			StartPilotLight();
 	void 			StopPilotLight();
+#else
+
+	virtual Vector	GetDeflectionSize();
+	virtual bool	DeflectPlayer( CTFPlayer *pTarget, CTFPlayer *pOwner, Vector &vecForward, Vector &vecCenter, Vector &vecSize );
+	virtual bool	DeflectEntity( CBaseEntity *pTarget, CTFPlayer *pOwner, Vector &vecForward, Vector &vecCenter, Vector &vecSize );
+	virtual void	PlayDeflectionSound( bool bPlayer );
 #endif
 
 private:
@@ -85,11 +112,18 @@ private:
 	CNetworkVar( int, m_iWeaponState );
 	CNetworkVar( bool, m_bCritFire );
 
+#if GAME_DLL
+	float m_flChargeBeginTime; // This should be a network var
+#endif
+
 	float m_flStartFiringTime;
 	float m_flNextPrimaryAttackAnim;
 
 	int			m_iParticleWaterLevel;
 	float		m_flAmmoUseRemainder;
+	float		m_flResetBurstEffect;
+	bool		m_bFiredSecondary;
+	bool		m_bFiredBothAttacks;
 
 #if defined( CLIENT_DLL )
 	CSoundPatch	*m_pFiringStartSound;

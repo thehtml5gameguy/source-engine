@@ -420,6 +420,15 @@ bool CTFSniperRifle::IsZoomed( void )
 }
 
 //-----------------------------------------------------------------------------
+//
+// Have we been zoomed in long enough for our shot to do max damage
+//
+bool CTFSniperRifle::IsFullyCharged( void ) const
+{
+	return m_flChargedDamage >= TF_WEAPON_SNIPERRIFLE_DAMAGE_MAX;
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 void CTFSniperRifle::ZoomOut( void )

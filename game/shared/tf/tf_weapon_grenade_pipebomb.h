@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. ========//
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ========//
 //
 // Purpose: TF Pipebomb Grenade.
 //
@@ -35,6 +35,7 @@ public:
 
 	int GetType( void ){ return m_iType; } 
 	virtual int			GetDamageType();
+	bool				HasStickyEffects() const { return m_iType == TF_GL_MODE_REMOTE_DETONATE || m_iType == TF_GL_MODE_REMOTE_DETONATE_PRACTICE; }
 
 	void			SetChargeTime( float flChargeTime )				{ m_flChargeTime = flChargeTime; }
 
@@ -82,7 +83,10 @@ public:
 	virtual void	VPhysicsCollision( int index, gamevcollisionevent_t *pEvent );
 
 	virtual int		OnTakeDamage( const CTakeDamageInfo &info );
+	virtual void	IncrementDeflected( void );
 
+	virtual bool	IsDeflectable( void ) { return true; }
+	virtual void	Deflected( CBaseEntity *pDeflectedBy, Vector& vecDir );
 
 private:
 
@@ -90,6 +94,7 @@ private:
 	bool		m_bFizzle;
 
 	float		m_flMinSleepTime;
+	float		m_flDeflectedTime;
 #endif
 };
 

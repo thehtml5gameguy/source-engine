@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======//
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======//
 //
 // Purpose: TF Base Rockets.
 //
@@ -48,10 +48,19 @@ public:
 	void	Precache( void );
 	void	Spawn( void );
 
+#ifdef GAME_DLL
+	virtual void	IncrementDeflected( void ) { m_iDeflected++; }
+	void			ResetDeflected( void ) { m_iDeflected = 0; }
+	int				GetDeflected( void ) { return m_iDeflected; }
+#endif
+
 protected:
 
 	// Networked.
 	CNetworkVector( m_vInitialVelocity );
+#ifdef GAME_DLL
+	int m_iDeflected;
+#endif
 
 //=============================================================================
 //

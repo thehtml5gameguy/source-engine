@@ -55,6 +55,8 @@
 
 #define DAMAGE_FORCE_SCALE_SELF				9
 
+#define JUMP_MIN_SPEED	268.3281572999747f		
+
 extern bool IsInCommentaryMode( void );
 
 extern ConVar	sk_player_head;
@@ -754,6 +756,93 @@ void CTFPlayer::InitialSpawn( void )
 	StateEnter( TF_STATE_WELCOME );
 }
 
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Override Base ApplyAbsVelocityImpulse (BaseEntity) to apply potential item attributes
+//-----------------------------------------------------------------------------
+void CTFPlayer::ApplyAbsVelocityImpulse( const Vector &vecImpulse ) 
+{
+	// Check for Attributes (mult_aiming_knockback_resistance)
+	Vector vecForce = vecImpulse;
+	float flImpulseScale = 1.0f;
+	if ( IsPlayerClass( TF_CLASS_SNIPER ) && m_Shared.InCond( TF_COND_AIMING ) )
+	{		
+	}
+
+	/*
+	// take extra force if you have a parachute deployed in x-y directions
+	if ( m_Shared.InCond( TF_COND_PARACHUTE_DEPLOYED ) )
+	{
+		// don't allow parachute robot to get push in MvM
+		float flHorizontalScale = TFGameRules()->IsMannVsMachineMode() && IsBot() ? 0.f : 1.5f;
+		vecForce.x *= flHorizontalScale;
+		vecForce.y *= flHorizontalScale;
+	}
+	*/
+
+	CBaseMultiplayerPlayer::ApplyAbsVelocityImpulse( vecForce * flImpulseScale );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CTFPlayer::ApplyAirBlastImpulse( const Vector &vecImpulse )
+{
+	// Knockout powerup carriers are immune to airblast
+	//if ( m_Shared.GetCarryingRuneType() == RUNE_KNOCKOUT || m_Shared.InCond( TF_COND_MEGAHEAL ) )
+	//	return;
+	
+	Vector vForce = vecImpulse;
+
+	float flScale = 1.0f;
+	vForce *= flScale;
+
+	// if on the ground, require min force to boost you off it
+	if ( ( GetFlags() & FL_ONGROUND ) && ( vForce.z < JUMP_MIN_SPEED ) )
+	{
+		// Minimum value of vecForce.z
+		vForce.z = JUMP_MIN_SPEED;
+	}
+
+	RemoveFlag( FL_ONGROUND );
+	//m_Shared.AddCond( TF_COND_KNOCKED_INTO_AIR );
+
+	ApplyAbsVelocityImpulse( vForce );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Go between for Setting Local Punch Impulses. Checks item attributes
+// Use this instead of directly calling m_Local.m_vecPunchAngle.SetX( value );
+//-----------------------------------------------------------------------------
+bool CTFPlayer::ApplyPunchImpulseX ( float flImpulse ) 
+{
+	// Check for No Aim Flinch
+	bool bFlinch = true;
+	if ( IsPlayerClass( TF_CLASS_SNIPER ) && m_Shared.InCond( TF_COND_AIMING ) )
+	{	
+		CTFWeaponBase *pWeapon = GetActiveTFWeapon();
+		if ( pWeapon && pWeapon->IsWeapon( TF_WEAPON_SNIPERRIFLE ) )
+		{
+			CTFSniperRifle *pRifle = static_cast< CTFSniperRifle* >( pWeapon );
+			if ( pRifle->IsFullyCharged() )
+			{
+				int iAimingNoFlinch = 0;
+				if ( iAimingNoFlinch > 0 )
+				{
+					bFlinch = false;
+				}
+			}
+		}
+	}
+	
+	if ( bFlinch )
+	{
+		m_Local.m_vecPunchAngle.SetX( flImpulse );
+	}
+
+	return bFlinch;
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: 

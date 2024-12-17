@@ -1,11 +1,12 @@
 
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // TF Rocket
 //
 //=============================================================================
 #include "cbase.h"
 #include "tf_projectile_rocket.h"
+#include "tf_player.h"
 
 //=============================================================================
 //
@@ -86,4 +87,38 @@ int	CTFProjectile_Rocket::GetDamageType()
 	}
 
 	return iDmgType;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Rocket was deflected.
+//-----------------------------------------------------------------------------
+void CTFProjectile_Rocket::Deflected( CBaseEntity *pDeflectedBy, Vector &vecDir )
+{
+	CTFPlayer *pTFDeflector = ToTFPlayer( pDeflectedBy );
+	if ( !pTFDeflector )
+		return;
+
+	ChangeTeam( pTFDeflector->GetTeamNumber() );
+	//SetLauncher( pTFDeflector->GetActiveWeapon() );
+
+	CTFPlayer* pOldOwner = ToTFPlayer( GetOwnerEntity() );
+	SetOwnerEntity( pTFDeflector );
+
+	if ( pOldOwner )
+	{
+		pOldOwner->SpeakConceptIfAllowed( MP_CONCEPT_DEFLECTED, "projectile:1,victim:1" );
+	}
+
+	/*
+	if ( pTFDeflector->m_Shared.IsCritBoosted() )
+	{
+		SetCritical( true );
+	}
+	*/
+
+	//CTFWeaponBase::SendObjectDeflectedEvent( pTFDeflector, pOldOwner, GetWeaponID(), this );
+
+	IncrementDeflected();
+	m_nSkin = ( GetTeamNumber() == TF_TEAM_BLUE ) ? 1 : 0;
 }

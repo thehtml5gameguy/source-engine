@@ -107,6 +107,7 @@ public:
 #endif
 
 	bool IsZoomed( void );
+	bool IsFullyCharged( void ) const;			// have we been zoomed in long enough for our shot to do max damage
 
 private:
 

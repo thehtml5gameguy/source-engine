@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2006, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2006, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -48,6 +48,19 @@ enum
 
 	NUM_TEAM_ROLES,
 };
+
+// common utility
+inline int GetEnemyTeam( int team )
+{
+	if ( team == TF_TEAM_RED )
+		return TF_TEAM_BLUE;
+
+	if ( team == TF_TEAM_BLUE )
+		return TF_TEAM_RED;
+
+	// no enemy team
+	return team;
+}
 
 //-----------------------------------------------------------------------------
 // CVar replacements
@@ -192,6 +205,8 @@ enum
 {
 	TF_GL_MODE_REGULAR = 0,
 	TF_GL_MODE_REMOTE_DETONATE,
+	TF_GL_MODE_REMOTE_DETONATE_PRACTICE,
+	TF_GL_MODE_CANNONBALL,
 };
 
 //-----------------------------------------------------------------------------

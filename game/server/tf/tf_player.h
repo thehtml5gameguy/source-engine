@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve LLC, All rights reserved. ============
+//========= Copyright ï¿½ 1996-2005, Valve LLC, All rights reserved. ============
 //
 //=============================================================================
 #ifndef TF_PLAYER_H
@@ -315,6 +315,14 @@ public:
 	virtual int	CalculateTeamBalanceScore( void );
 
 	bool ShouldAnnouceAchievement( void );
+
+	virtual bool IsDeflectable() { return true; }
+
+	//Base entity overrides
+	// Functions that intercept Base Calls for Attribute Checking
+	void ApplyAbsVelocityImpulse ( const Vector &vecImpulse );
+	bool ApplyPunchImpulseX ( float flImpulse );
+	void ApplyAirBlastImpulse( const Vector &vecImpulse );
 
 public:
 
