@@ -90,6 +90,79 @@ public:
 	virtual float GetChargeMaxTime( void ) = 0;
 };
 
+
+class CTraceFilterIgnoreTeammates : public CTraceFilterSimple
+{
+public:
+	// It does have a base, but we'll never network anything below here..
+	DECLARE_CLASS( CTraceFilterIgnoreTeammates, CTraceFilterSimple );
+
+	CTraceFilterIgnoreTeammates( const IHandleEntity *passentity, int collisionGroup, int iIgnoreTeam )
+		: CTraceFilterSimple( passentity, collisionGroup ), m_iIgnoreTeam( iIgnoreTeam )
+	{
+	}
+
+	virtual bool ShouldHitEntity( IHandleEntity *pServerEntity, int contentsMask )
+	{
+		CBaseEntity *pEntity = EntityFromEntityHandle( pServerEntity );
+
+		if ( pEntity->IsPlayer() && pEntity->GetTeamNumber() == m_iIgnoreTeam )
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	int m_iIgnoreTeam;
+};
+
+
+class CTraceFilterIgnoreFriendlyCombatItems : public CTraceFilterSimple
+{
+public:
+	DECLARE_CLASS( CTraceFilterIgnoreFriendlyCombatItems, CTraceFilterSimple );
+
+	CTraceFilterIgnoreFriendlyCombatItems( const IHandleEntity *passentity, int collisionGroup, int iIgnoreTeam, bool bIsProjectile = false )
+		: CTraceFilterSimple( passentity, collisionGroup ), m_iIgnoreTeam( iIgnoreTeam )
+	{
+		m_bCallerIsProjectile = bIsProjectile;
+	}
+
+	virtual bool ShouldHitEntity( IHandleEntity *pServerEntity, int contentsMask )
+	{
+		CBaseEntity *pEntity = EntityFromEntityHandle( pServerEntity );
+
+// 		if ( ( pEntity->MyCombatCharacterPointer() || pEntity->MyCombatWeaponPointer() ) && pEntity->GetTeamNumber() == m_iIgnoreTeam )
+// 			return false;
+// 
+// 		if ( pEntity->IsPlayer() && pEntity->GetTeamNumber() == m_iIgnoreTeam )
+// 			return false;
+
+		if ( pEntity->IsCombatItem() )
+		{
+			if ( pEntity->GetTeamNumber() == m_iIgnoreTeam )
+				return false;
+
+			// If source is a enemy projectile, be explicit, otherwise we fail a "IsTransparent" test downstream
+			if ( m_bCallerIsProjectile )
+				return true;
+		}
+
+		return BaseClass::ShouldHitEntity( pServerEntity, contentsMask );
+	}
+
+	int m_iIgnoreTeam;
+	bool m_bCallerIsProjectile;
+};
+
+#define ENERGY_WEAPON_MAX_CHARGE		20
+
+#define TF_PARTICLE_WEAPON_BLUE_1	Vector( 0.345, 0.52, 0.635 )
+#define TF_PARTICLE_WEAPON_BLUE_2	Vector( 0.145, 0.427, 0.55 )
+#define TF_PARTICLE_WEAPON_RED_1	Vector( 0.72, 0.22, 0.23 )
+#define TF_PARTICLE_WEAPON_RED_2	Vector( 0.5, 0.18, 0.125 )
+
 //=============================================================================
 //
 // Base TF Weapon Class
@@ -286,6 +359,8 @@ protected:
 private:
 	CTFWeaponBase( const CTFWeaponBase & );
 };
+
+bool WeaponID_IsSniperRifle( int iWeaponID );
 
 #define WEAPON_RANDOM_RANGE 10000
 

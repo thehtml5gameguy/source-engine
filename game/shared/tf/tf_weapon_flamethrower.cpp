@@ -670,10 +670,10 @@ void ExtinguishPlayer( /*CEconEntity*/void *pExtinguisher, CTFPlayer *pOwner, CT
 	involved_filter.AddRecipient( pOwner );
 	involved_filter.AddRecipient( pTarget );
 
-	UserMessageBegin( involved_filter, "PlayerExtinguished" );
-	WRITE_BYTE( pOwner->entindex() );
-	WRITE_BYTE( pTarget->entindex() );
-	MessageEnd();
+	//UserMessageBegin( involved_filter, "PlayerExtinguished" );
+	//WRITE_BYTE( pOwner->entindex() );
+	//WRITE_BYTE( pTarget->entindex() );
+	//MessageEnd();
 
 	IGameEvent *event = gameeventmanager->CreateEvent( "player_extinguished" );
 	if ( event )

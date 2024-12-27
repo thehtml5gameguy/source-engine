@@ -2411,3 +2411,8 @@ float CTFWeaponBase::DeflectionForce( const Vector &size, float damage, float sc
 
 
 #endif
+
+bool WeaponID_IsSniperRifle( int iWeaponID )
+{
+	return iWeaponID == TF_WEAPON_SNIPERRIFLE;
+}

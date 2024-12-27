@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Engineer's Sentrygun
 //
@@ -24,6 +24,16 @@ enum
 	// SENTRY_LEVEL_2_UPGRADING,
 	SENTRY_LEVEL_3,
 };
+
+#define SF_SENTRY_UPGRADEABLE	(LAST_SF_BASEOBJ<<1)
+#define SF_SENTRY_INFINITE_AMMO (LAST_SF_BASEOBJ<<2)
+
+#define SENTRYGUN_MAX_HEALTH	150
+
+#define SENTRYGUN_MINI_MAX_HEALTH	100
+
+#define SENTRY_MAX_RANGE 1100.0f		// magic numbers are evil, people. adding this #define to demystify the value. (MSB 5/14/09)
+#define SENTRY_MAX_RANGE_SQRD 1210000.0f
 
 // ------------------------------------------------------------------------ //
 // Sentrygun object that's built by the player

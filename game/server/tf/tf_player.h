@@ -22,6 +22,8 @@ class CTFWeaponBuilder;
 class CBaseObject;
 class CTFWeaponBase;
 class CIntroViewpoint;
+class CTriggerAreaCapture;
+class CTFWeaponBaseGun;
 
 //=============================================================================
 //
@@ -172,6 +174,7 @@ public:
 	void				UpdateSkin( int iTeam );
 
 	virtual int			GiveAmmo( int iCount, int iAmmoIndex, bool bSuppressSound = false );
+	int					GetMaxAmmo( int iAmmoIndex, int iClassIndex = -1 );
 
 	bool				CanAttack( void );
 
@@ -202,6 +205,10 @@ public:
 	void TeamFortress_RemoveEverythingFromWorld();
 	void TeamFortress_RemoveRockets();
 	void TeamFortress_RemovePipebombs();
+
+	Vector EstimateProjectileImpactPosition( CTFWeaponBaseGun *weapon );				// estimate where a projectile fired from the given weapon will initially hit (it may bounce on from there)
+	Vector EstimateProjectileImpactPosition( float pitch, float yaw, float initVel );	// estimate where a projectile fired will initially hit (it may bounce on from there)
+	Vector EstimateStickybombProjectileImpactPosition( float pitch, float yaw, float charge );	// Estimate where a stickybomb projectile will hit, using given pitch, yaw, and weapon charge (0-1)
 
 	CTFTeamSpawn *GetSpawnPoint( void ){ return m_pSpawnPoint; }
 		
@@ -285,6 +292,13 @@ public:
 
 	bool GetMedigunAutoHeal( void ){ return m_bMedigunAutoHeal; }
 	void SetMedigunAutoHeal( bool bMedigunAutoHeal ){ m_bMedigunAutoHeal = bMedigunAutoHeal; }
+	CBaseEntity		*MedicGetHealTarget( void );
+	float			MedicGetChargeLevel( CTFWeaponBase **pRetMedigun = NULL );
+	bool IsCallingForMedic( void ) const;			// return true if this player has called for a Medic in the last few seconds
+	float GetTimeSinceCalledForMedic( void ) const;
+	void NoteMedicCall( void );
+
+	bool IsMiniBoss( void ) const { return false; };
 
 	bool ShouldAutoRezoom( void ) { return m_bAutoRezoom; }
 	void SetAutoRezoom( bool bAutoRezoom ) { m_bAutoRezoom = bAutoRezoom; }
@@ -317,6 +331,19 @@ public:
 	bool ShouldAnnouceAchievement( void );
 
 	virtual bool IsDeflectable() { return true; }
+
+	bool IsThreatAimingTowardMe( CBaseEntity *threat, float cosTolerance = 0.8f ) const;	// return true if the given threat is aiming in our direction
+	bool IsThreatFiringAtMe( CBaseEntity *threat ) const;		// return true if the given threat is aiming in our direction and firing its weapon
+	bool IsInCombat( void ) const;								// return true if we are engaged in active combat
+
+	bool				IsAnyEnemySentryAbleToAttackMe( void ) const;		// return true if any enemy sentry has LOS and is facing me and is in range to attack
+
+	bool				IsCapturingPoint( void );
+	CTriggerAreaCapture *GetControlPointStandingOn( void );
+
+	// given a vector of points, return the point we can actually travel to the quickest (requires a nav mesh)
+	CTeamControlPoint *SelectClosestControlPointByTravelDistance( CUtlVector< CTeamControlPoint * > *pointVector ) const;
+
 
 	//Base entity overrides
 	// Functions that intercept Base Calls for Attribute Checking
@@ -401,7 +428,7 @@ public:
 	void				HandleCommand_JoinTeam_NoMenus(const char* pTeamName);
 	int					GetAutoTeam( void );
 
-private:
+protected:
 
 	// Creation/Destruction.
 	void				InitClass( void );
@@ -569,6 +596,25 @@ inline int CTFPlayer::StateGet( void ) const
 	return m_Shared.m_nPlayerState;
 }
 
+inline bool CTFPlayer::IsInCombat( void ) const
+{
+	// the simplest condition is whether we've been firing our weapon very recently
+	return GetTimeSinceWeaponFired() < 2.0f;
+}
 
+inline bool CTFPlayer::IsCallingForMedic( void ) const
+{
+	return m_lastCalledMedic.HasStarted() && m_lastCalledMedic.IsLessThen( 5.0f );
+}
+
+inline float CTFPlayer::GetTimeSinceCalledForMedic() const
+{
+	return m_lastCalledMedic.GetElapsedTime();
+}
+
+inline void CTFPlayer::NoteMedicCall( void )
+{
+	m_lastCalledMedic.Start();
+}
 
 #endif	// TF_PLAYER_H

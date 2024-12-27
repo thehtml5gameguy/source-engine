@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Engineer's Teleporter
 //
@@ -49,7 +49,12 @@ public:
 	CObjectTeleporter *GetMatchingTeleporter( void );
 	CObjectTeleporter *FindMatch( void );	// Find the teleport partner to this object
 
+	bool IsReady( void );					// is this teleporter connected and functional? (ie: not sapped, disabled, upgrading, unconnected, etc)
 	bool IsMatchingTeleporterReady( void );
+	bool IsSendingPlayer( CTFPlayer *player );	// returns true if we are in the process of teleporting the given player
+
+	virtual bool IsEntrance( void ) = 0;
+	virtual bool IsExit( void ) = 0;
 
 	int GetState( void ) { return m_iState; }	// state of the object ( building, charging, ready etc )
 
@@ -100,6 +105,8 @@ public:
 
 	virtual void Spawn();
 	virtual void TeleporterSend( CTFPlayer *pPlayer );
+	virtual bool IsEntrance( void ) { return true; };
+	virtual bool IsExit( void )  { return false; };;
 };
 
 class CObjectTeleporter_Exit : public CObjectTeleporter
@@ -111,6 +118,8 @@ public:
 
 	virtual void Spawn();
 	virtual void TeleporterReceive( CTFPlayer *pPlayer, float flDelay );
+	virtual bool IsEntrance( void ) { return false; };
+	virtual bool IsExit( void )  { return true; };;
 };
 
 #endif // TF_OBJ_TELEPORTER_H

@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: Shared player code.
 //
@@ -118,6 +118,9 @@ public:
 	void	UpdateConditions( void );
 #endif
 
+	bool	IsInvulnerable( void ) const;
+	bool	IsStealthed( void ) const;
+
 	void	Disguise( int nTeam, int nClass );
 	void	CompleteDisguise( void );
 	void	RemoveDisguise( void );
@@ -154,6 +157,9 @@ public:
 	EHANDLE GetHealerByIndex(int index);
 	int		FindHealerIndex( CTFPlayer *pPlayer );
 	EHANDLE	GetFirstHealer();
+
+	bool	AddToSpyCloakMeter( float val, bool bForce=false );
+
 	bool	HealerIsDispenser(int index) const;
 #endif
 	int		GetNumHealers( void ) { return m_nNumHealers; }

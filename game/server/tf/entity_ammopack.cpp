@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======//
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======//
 //
 // Purpose: CTF AmmoPack.
 //
@@ -75,6 +75,11 @@ bool CAmmoPack::MyTouch( CBasePlayer *pPlayer )
 
 		int iMaxMetal = pTFPlayer->GetPlayerClass()->GetData()->m_aAmmoMax[TF_AMMO_METAL];
 		if ( pPlayer->GiveAmmo( ceil(iMaxMetal * PackRatios[GetPowerupSize()]), TF_AMMO_METAL, true ) )
+		{
+			bSuccess = true;
+		}
+
+		if ( pTFPlayer->m_Shared.AddToSpyCloakMeter( 100.0f * PackRatios[GetPowerupSize()] ) )
 		{
 			bSuccess = true;
 		}

@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Teleporter Object
 //
@@ -387,6 +387,21 @@ void CObjectTeleporter::TeleporterTouch( CBaseEntity *pOther )
 }
 
 //-----------------------------------------------------------------------------
+// Purpose: Is this teleporter connected and functional? (ie: not sapped, disabled, upgrading, unconnected, etc)
+//-----------------------------------------------------------------------------
+bool CObjectTeleporter::IsReady( void )
+{
+#ifdef STAGING_ONLY
+	if ( !IsMatchingTeleporterReady() && !IsSpeedPad() )
+#else
+	if ( !IsMatchingTeleporterReady() )
+#endif
+		return false;
+
+	return GetState() != TELEPORTER_STATE_BUILDING && !IsUpgrading() && !IsDisabled();
+}
+
+//-----------------------------------------------------------------------------
 // Receive a teleporting player 
 //-----------------------------------------------------------------------------
 bool CObjectTeleporter::IsMatchingTeleporterReady( void )
@@ -403,6 +418,16 @@ bool CObjectTeleporter::IsMatchingTeleporterReady( void )
 
 	return false;
 }
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Returns true if we are in the process of teleporting the given player
+//-----------------------------------------------------------------------------
+bool CObjectTeleporter::IsSendingPlayer( CTFPlayer *pPlayer )
+{
+	return ( GetState() == TELEPORTER_STATE_SENDING && m_hTeleportingPlayer == pPlayer );
+}
+
 
 CObjectTeleporter *CObjectTeleporter::GetMatchingTeleporter( void )
 {

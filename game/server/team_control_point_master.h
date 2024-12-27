@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -57,6 +57,7 @@ public:
 	void FireTeamWinOutput( int iWinningTeam );
 
 	bool PointCanBeCapped( CTeamControlPoint *pPoint );
+	bool IsInRound( CTeamControlPoint *pPoint );
 	void CheckWinConditions( void );
 
 	bool WouldNewCPOwnerWinGame( CTeamControlPoint *pPoint, int iNewOwner );

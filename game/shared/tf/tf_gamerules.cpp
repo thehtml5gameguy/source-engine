@@ -37,6 +37,7 @@
 	#include "entity_capture_flag.h"
 	#include "tf_player_resource.h"
 	#include "tf_obj_sentrygun.h"
+	#include "bot/map_entities/tf_bot_roster.h"
 	#include "tier0/icommandline.h"
 	#include "activitylist.h"
 	#include "AI_ResponseSystem.h"
@@ -524,6 +525,35 @@ void CTFGameRules::Activate()
 	if ( g_hControlPointMasters.Count() )
 	{
 		m_nGameType.Set( TF_GAMETYPE_CP );
+	}
+
+
+	// bot roster
+	m_hBlueBotRoster = NULL;
+	m_hRedBotRoster = NULL;
+	CHandle<CTFBotRoster> hBotRoster = dynamic_cast< CTFBotRoster* >( gEntList.FindEntityByClassname( NULL, "bot_roster" ) );
+	while ( hBotRoster != NULL )
+	{
+		if ( FStrEq( hBotRoster->m_teamName.ToCStr(), "blue" ) )
+		{
+			m_hBlueBotRoster = hBotRoster;
+		}
+		else if ( FStrEq( hBotRoster->m_teamName.ToCStr(), "red" ) )
+		{
+			m_hRedBotRoster = hBotRoster;
+		}
+		else
+		{
+			if ( m_hBlueBotRoster == NULL )
+			{
+				m_hBlueBotRoster = hBotRoster;
+			}
+			if ( m_hRedBotRoster == NULL )
+			{
+				m_hRedBotRoster = hBotRoster;
+			}
+		}
+		hBotRoster = dynamic_cast< CTFBotRoster* >( gEntList.FindEntityByClassname( hBotRoster, "bot_roster" ) );
 	}
 }
 
@@ -3389,4 +3419,238 @@ const char *CTFGameRules::GetVideoFileForMap( bool bWithExtension /*= true*/ )
 
 	return strFullpath;
 }
+#endif
+
+#ifdef GAME_DLL
+
+//-----------------------------------------------------------------------------
+// Purpose: Compute internal vectors of health and ammo locations
+//-----------------------------------------------------------------------------
+void CTFGameRules::ComputeHealthAndAmmoVectors( void )
+{
+	m_ammoVector.RemoveAll();
+	m_healthVector.RemoveAll();
+
+	CBaseEntity *pEnt = gEntList.FirstEnt();
+	while( pEnt )
+	{
+		if ( pEnt->ClassMatches( "func_regenerate" ) || pEnt->ClassMatches( "item_healthkit*" ) )
+		{
+			m_healthVector.AddToTail( pEnt );
+		}
+
+		if ( pEnt->ClassMatches( "func_regenerate" ) || pEnt->ClassMatches( "item_ammopack*" ) )
+		{
+			m_ammoVector.AddToTail( pEnt );
+		}
+
+		pEnt = gEntList.NextEnt( pEnt );
+	}
+
+	m_areHealthAndAmmoVectorsReady = true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Return vector of health entities
+//-----------------------------------------------------------------------------
+const CUtlVector< CHandle< CBaseEntity > > &CTFGameRules::GetHealthEntityVector( void )
+{
+	// lazy-populate health and ammo vector since some maps (Dario!) move these entities around between stages
+	if ( !m_areHealthAndAmmoVectorsReady )
+	{
+		ComputeHealthAndAmmoVectors();
+	}
+
+	return m_healthVector;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Return vector of ammo entities
+//-----------------------------------------------------------------------------
+const CUtlVector< CHandle< CBaseEntity > > &CTFGameRules::GetAmmoEntityVector( void )
+{
+	// lazy-populate health and ammo vector since some maps (Dario!) move these entities around between stages
+	if ( !m_areHealthAndAmmoVectorsReady )
+	{
+		ComputeHealthAndAmmoVectors();
+	}
+
+	return m_ammoVector;
+}
+
+void CTFGameRules::PushAllPlayersAway( const Vector& vFromThisPoint, float flRange, float flForce, int nTeam, CUtlVector< CTFPlayer* > *pPushedPlayers /*= NULL*/ )
+{
+	CUtlVector< CTFPlayer * > playerVector;
+	CollectPlayers( &playerVector, nTeam, COLLECT_ONLY_LIVING_PLAYERS );
+
+	for( int i=0; i<playerVector.Count(); ++i )
+	{
+		CTFPlayer *pPlayer = playerVector[i];
+
+		Vector toPlayer = pPlayer->EyePosition() - vFromThisPoint;
+
+		if ( toPlayer.LengthSqr() < flRange * flRange )
+		{
+			// send the player flying
+			// make sure we push players up and away
+			toPlayer.z = 0.0f;
+			toPlayer.NormalizeInPlace();
+			toPlayer.z = 1.0f;
+
+			Vector vPush = flForce * toPlayer;
+
+			pPlayer->ApplyAbsVelocityImpulse( vPush );
+
+			if ( pPushedPlayers )
+			{
+				pPushedPlayers->AddToTail( pPlayer );
+			}
+		}
+	}
+}
+
+
+
+bool CTFGameRules::CanBotChangeClass( CBasePlayer* pPlayer )
+{
+	// if there's a roster for this bot's team, check to see if the level designer has allowed the bot to change class
+	// used when the bot dies and wants to see if it can change class
+	CTFPlayer *pTFPlayer = ToTFPlayer( pPlayer );
+	if ( pTFPlayer && pTFPlayer->GetPlayerClass() && pTFPlayer->GetPlayerClass()->GetClassIndex() != TF_CLASS_UNDEFINED )
+	{
+		switch ( pPlayer->GetTeamNumber() )
+		{					  
+		case TF_TEAM_RED:  return m_hRedBotRoster ? m_hRedBotRoster->IsClassChangeAllowed() : true; break;
+		case TF_TEAM_BLUE: return m_hBlueBotRoster ? m_hBlueBotRoster->IsClassChangeAllowed() : true; break;
+		}
+	}
+	return true;
+}
+
+bool CTFGameRules::CanBotChooseClass( CBasePlayer *pPlayer, int iClass )
+{
+	// if there's a roster for this bot's team, then check to see if the class the bot has requested is allowed by the roster
+	bool bCanChooseClass = true;/*CanPlayerChooseClass( pPlayer, iClass );*/
+	if ( bCanChooseClass )
+	{
+		// now check rosters...
+		switch ( pPlayer->GetTeamNumber() )
+		{					  
+		case TF_TEAM_RED:  
+			bCanChooseClass = m_hRedBotRoster ? m_hRedBotRoster->IsClassAllowed( iClass ) : true; 
+			break;
+		case TF_TEAM_BLUE: 
+			bCanChooseClass = m_hBlueBotRoster ? m_hBlueBotRoster->IsClassAllowed( iClass ) : true; 
+			break;
+		default: 
+			// no roster - spectator team
+			bCanChooseClass = true; 
+			break;
+		}
+	}
+	return bCanChooseClass;
+}
+
+//-----------------------------------------------------------------------------
+// Populate vector with set of control points the player needs to capture
+void CTFGameRules::CollectCapturePoints( CBasePlayer *player, CUtlVector< CTeamControlPoint * > *captureVector ) const
+{
+	if ( !captureVector )
+		return;
+
+	captureVector->RemoveAll();
+
+	CTeamControlPointMaster *pMaster = g_hControlPointMasters.Count() ? g_hControlPointMasters[0] : NULL;
+	if ( pMaster )
+	{
+		// special case hack for KotH mode to use control points that are locked at the start of the round
+		if ( IsInKothMode() && pMaster->GetNumPoints() == 1 )
+		{
+			captureVector->AddToTail( pMaster->GetControlPoint( 0 ) );
+			return;
+		}
+
+		for( int i=0; i<pMaster->GetNumPoints(); ++i )
+		{
+			CTeamControlPoint *point = pMaster->GetControlPoint( i );
+			if ( point && pMaster->IsInRound( point ) )
+			{
+				if ( ObjectiveResource()->GetOwningTeam( point->GetPointIndex() ) == player->GetTeamNumber() )
+					continue;
+
+				if ( player && player->IsBot() && point->ShouldBotsIgnore() )
+					continue;
+
+				if ( ObjectiveResource()->TeamCanCapPoint( point->GetPointIndex(), player->GetTeamNumber() ) )
+				{
+					if ( TeamplayGameRules()->TeamMayCapturePoint( player->GetTeamNumber(), point->GetPointIndex() ) )
+					{
+						// unlocked point not on our team available to capture
+						captureVector->AddToTail( point );
+					}
+				}
+			}
+		}
+	}
+}
+
+
+//-----------------------------------------------------------------------------
+// Populate vector with set of control points the player needs to defend from capture
+void CTFGameRules::CollectDefendPoints( CBasePlayer *player, CUtlVector< CTeamControlPoint * > *defendVector ) const
+{
+	if ( !defendVector )
+		return;
+
+	defendVector->RemoveAll();
+
+	CTeamControlPointMaster *pMaster = g_hControlPointMasters.Count() ? g_hControlPointMasters[0] : NULL;
+	if ( pMaster )
+	{
+		for( int i=0; i<pMaster->GetNumPoints(); ++i )
+		{
+			CTeamControlPoint *point = pMaster->GetControlPoint( i );
+			if ( point && pMaster->IsInRound( point ) )
+			{
+				if ( ObjectiveResource()->GetOwningTeam( point->GetPointIndex() ) != player->GetTeamNumber() )
+					continue;
+					
+				if ( player && player->IsBot() && point->ShouldBotsIgnore() )
+					continue;
+
+				if ( ObjectiveResource()->TeamCanCapPoint( point->GetPointIndex(), GetEnemyTeam( player->GetTeamNumber() ) ) )
+				{
+					if ( TeamplayGameRules()->TeamMayCapturePoint( GetEnemyTeam( player->GetTeamNumber() ), point->GetPointIndex() ) )
+					{
+						// unlocked point on our team vulnerable to capture
+						defendVector->AddToTail( point );
+					}
+				}
+			}
+		}
+	}
+}
+
+
+//-----------------------------------------------------------------------------
+CObjectSentrygun *CTFGameRules::FindSentryGunWithMostKills( int team ) const
+{
+	CObjectSentrygun *dangerousSentry = NULL;
+	int dangerousSentryKills = -1;
+
+	for ( int i=0; i<IBaseObjectAutoList::AutoList().Count(); ++i )
+	{
+		CBaseObject *pObj = static_cast< CBaseObject* >( IBaseObjectAutoList::AutoList()[i] );
+		if ( pObj->ObjectType() == OBJ_SENTRYGUN && pObj->GetTeamNumber() == team && pObj->GetKills() >= dangerousSentryKills )
+		{
+			dangerousSentryKills = pObj->GetKills();
+			dangerousSentry = static_cast<CObjectSentrygun *>( pObj );
+		}
+	}
+
+	return dangerousSentry;
+}
+
+
 #endif

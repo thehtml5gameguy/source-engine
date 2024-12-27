@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2006, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2006, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: CTF Flag.
 //
@@ -13,6 +13,8 @@
 
 #ifdef CLIENT_DLL
 #define CCaptureFlag C_CaptureFlag
+#else
+class CTFBot;
 #endif
 
 #define TF_FLAG_THINK_TIME			1.0f
@@ -179,6 +181,10 @@ public:
 
 	int				UpdateTransmitState();
 
+	void			AddFollower( CTFBot* pBot );
+	void			RemoveFollower( CTFBot* pBot );
+	int				GetNumFollowers() const { return m_followers.Count(); }
+
 #else // CLIENT DLL Functions
 
 	virtual const char	*GetIDString( void ) { return "entity_capture_flag"; };
@@ -229,6 +235,8 @@ private:
 	EHANDLE		m_hReturnIcon;
 
 #ifdef GAME_DLL
+	CUtlVector< CHandle< CTFBot > >	m_followers;
+
 	Vector			m_vecResetPos;		// The position the flag should respawn (reset) at.
 	QAngle			m_vecResetAng;		// The angle the flag should respawn (reset) at.
 

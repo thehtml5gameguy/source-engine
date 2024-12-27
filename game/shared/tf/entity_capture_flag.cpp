@@ -1202,6 +1202,39 @@ int CCaptureFlagReturnIcon::UpdateTransmitState( void )
 {
 	return SetTransmitState( FL_EDICT_PVSCHECK );
 }
+
+
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CCaptureFlag::AddFollower( CTFBot* pBot )
+{
+	if ( !m_followers.HasElement( pBot ) )
+	{
+		m_followers.AddToTail( pBot );
+		//for ( int i=0; i<m_tags.Count(); ++i )
+		//{
+		//	pBot->AddTag( m_tags[i] );
+		//}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CCaptureFlag::RemoveFollower( CTFBot* pBot )
+{
+	int index = m_followers.Find( pBot );
+	if ( index != m_followers.InvalidIndex() )
+	{
+		m_followers.Remove( index );
+		//for ( int i=0; i<m_tags.Count(); ++i )
+		//{
+		//	pBot->RemoveTag( m_tags[i] );
+		//}
+	}
+}
 #endif
 
 #ifdef CLIENT_DLL

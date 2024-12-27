@@ -14,6 +14,7 @@
 #include "baseobject_shared.h"
 #include "tf_weapon_medigun.h"
 #include "tf_weapon_pipebomblauncher.h"
+#include "tf_weapon_invis.h"
 #include "in_buttons.h"
 
 // Client specific.
@@ -545,6 +546,12 @@ void CTFPlayerShared::ConditionGameRulesThink( void )
 		for ( int i = 0; i < m_aHealers.Count(); i++ )
 		{
 			Assert( m_aHealers[i].pPlayer );
+
+			// dispensers heal cloak
+			if ( m_aHealers[i].bDispenserHeal )
+			{
+				AddToSpyCloakMeter( gpGlobals->frametime * m_aHealers[i].flAmount );	
+			}
 
 			// Dispensers don't heal above 100%
 			if ( bHasFullHealth && m_aHealers[i].bDispenserHeal )
@@ -1823,6 +1830,38 @@ int	CTFPlayerShared::GetNumKillsInTime( float flTime )
 	return iKills;
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CTFPlayerShared::AddToSpyCloakMeter( float val, bool bForce )
+{
+	CTFWeaponInvis *pWpn = (CTFWeaponInvis *) m_pOuter->Weapon_OwnsThisID( TF_WEAPON_INVIS );
+	if ( !pWpn )
+		return false;
+
+	// STAGING_SPY
+	// Special cloaks only get cloak if not active and receive a smaller portion
+	int iNoCloakedPickup = 0;
+	//CALL_ATTRIB_HOOK_INT_ON_OTHER( pWpn, iNoCloakedPickup, NoCloakWhenCloaked );
+	if ( !bForce )
+	{
+		if ( InCond( TF_COND_STEALTHED ) && iNoCloakedPickup )
+		{
+			return false;
+		}
+		else
+		{
+			//CALL_ATTRIB_HOOK_FLOAT_ON_OTHER( pWpn, val, ReducedCloakFromAmmo );
+		}
+	}
+
+	bool bResult = ( val > 0 && m_flCloakMeter < 100.0f );
+
+	m_flCloakMeter = clamp( m_flCloakMeter + val, 0.0f, 100.0f );
+
+	return bResult;
+}
+
 #endif
 
 //=============================================================================
@@ -2550,3 +2589,112 @@ CTFWeaponBase *CTFPlayer::Weapon_GetWeaponByType( int iType )
 
 }
 
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+CBaseEntity *CTFPlayer::MedicGetHealTarget( void )
+{
+	if ( IsPlayerClass(TF_CLASS_MEDIC) )
+	{
+		CWeaponMedigun *pWeapon = dynamic_cast <CWeaponMedigun*>( GetActiveWeapon() );
+
+		if ( pWeapon )
+			return pWeapon->GetHealTarget();
+	}
+
+	return NULL;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+float CTFPlayer::MedicGetChargeLevel( CTFWeaponBase **pRetMedigun )
+{
+	if ( IsPlayerClass(TF_CLASS_MEDIC) )
+	{
+		CTFWeaponBase *pWpn = ( CTFWeaponBase *)Weapon_OwnsThisID( TF_WEAPON_MEDIGUN );
+
+		if ( pWpn == NULL )
+			return 0;
+
+		CWeaponMedigun *pMedigun = dynamic_cast <CWeaponMedigun*>( pWpn );
+
+		if ( pRetMedigun )
+		{
+			*pRetMedigun = pMedigun;
+		}
+
+		if ( pMedigun )
+			return pMedigun->GetChargeLevel();
+	}
+
+	return 0;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+bool CTFPlayerShared::IsInvulnerable( void ) const
+{
+	bool bInvuln = InCond( TF_COND_INVULNERABLE );
+
+	return bInvuln;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+bool CTFPlayerShared::IsStealthed( void ) const
+{
+#ifdef STAGING_ONLY
+#ifdef CLIENT_DLL
+	// This is a client hack to make everyone else invisible to the local player
+	C_TFPlayer *pLocalTFPlayer = C_TFPlayer::GetLocalTFPlayer();
+	if ( pLocalTFPlayer && pLocalTFPlayer->m_Shared.InCond( TF_COND_STEALTHED_PHASE ) && pLocalTFPlayer != m_pOuter )
+		return true;
+#endif // CLIENT_DLL
+#endif // STAGING_ONLY
+
+	return ( InCond( TF_COND_STEALTHED ) /*|| InCond( TF_COND_STEALTHED_USER_BUFF ) || InCond( TF_COND_STEALTHED_USER_BUFF_FADING )*/ );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+int	CTFPlayer::GetMaxAmmo( int iAmmoIndex, int iClassIndex /*= -1*/ )
+{
+	int iMax = ( iClassIndex == -1 ) ? m_PlayerClass.GetData()->m_aAmmoMax[iAmmoIndex] : GetPlayerClassData( iClassIndex )->m_aAmmoMax[iAmmoIndex];
+	/*
+	if ( iAmmoIndex == TF_AMMO_PRIMARY )
+	{
+		//CALL_ATTRIB_HOOK_INT( iMax, mult_maxammo_primary );
+	}
+	else if ( iAmmoIndex == TF_AMMO_SECONDARY )
+	{
+		//CALL_ATTRIB_HOOK_INT( iMax, mult_maxammo_secondary );
+	}
+	else if ( iAmmoIndex == TF_AMMO_METAL )
+	{
+		//CALL_ATTRIB_HOOK_INT( iMax, mult_maxammo_metal );
+	}
+	else if ( iAmmoIndex == TF_AMMO_GRENADES1 )
+	{
+		//CALL_ATTRIB_HOOK_INT( iMax, mult_maxammo_grenades1 );
+	}
+	else if ( iAmmoIndex == TF_AMMO_GRENADES3 )
+	{
+		// All classes by default can carry a max of 1 "Grenade3" which is being used as ACTIONSLOT Throwables
+		iMax = 1;
+	}
+
+	// Haste Powerup Rune adds multiplier to Max Ammo
+	if ( m_Shared.GetCarryingRuneType() == RUNE_HASTE )
+	{
+		iMax *= 2.0f;
+	}
+	*/
+
+	return iMax;
+}

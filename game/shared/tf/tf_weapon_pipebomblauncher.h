@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2005, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -61,6 +61,7 @@ public:
 	virtual float GetChargeBeginTime( void ) { return m_flChargeBeginTime; }
 	virtual float GetChargeMaxTime( void );
 	int	GetPipeBombCount( void ) { return m_iPipebombCount; }
+	const CUtlVector< CHandle< CTFGrenadePipebombProjectile > > &GetPipeBombVector( void ) const;
 	//TF_MOD_BOT changes
 	// List of active pipebombs
 	typedef CHandle<CTFGrenadePipebombProjectile>	PipebombHandle;
@@ -93,5 +94,10 @@ private:
 
 	CTFPipebombLauncher( const CTFPipebombLauncher & ) {}
 };
+
+inline const CUtlVector< CHandle< CTFGrenadePipebombProjectile > > &CTFPipebombLauncher::GetPipeBombVector( void ) const
+{
+	return m_Pipebombs;
+}
 
 #endif // TF_WEAPON_PIPEBOMBLAUNCHER_H

@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2003, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2003, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -148,8 +148,6 @@ public:
 
 	void			SetHealer( C_TFPlayer *pHealer, float flChargeLevel );
 	void			GetHealer( C_TFPlayer **pHealer, float *flChargeLevel ) { *pHealer = m_hHealer; *flChargeLevel = m_flHealerChargeLevel; }
-	float			MedicGetChargeLevel( void );
-	CBaseEntity		*MedicGetHealTarget( void );
 
 	void			StartBurningSound( void );
 	void			StopBurningSound( void );
@@ -200,6 +198,7 @@ public:
 
 	bool	DoClassSpecialSkill( void );
 	bool	CanGoInvisible( void );
+	int		GetMaxAmmo( int iAmmoIndex, int iClassIndex = -1 );
 
 public:
 	// Ragdolls.

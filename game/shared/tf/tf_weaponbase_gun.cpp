@@ -10,6 +10,7 @@
 #include "effect_dispatch_data.h"
 #include "takedamageinfo.h"
 #include "tf_projectile_nail.h"
+#include "tf_weaponbase.h"
 
 #if !defined( CLIENT_DLL )	// Server specific.
 
@@ -249,32 +250,6 @@ void CTFWeaponBaseGun::FireBullet( CTFPlayer *pPlayer )
 		GetProjectileDamage(),
 		IsCurrentAttackACrit() );
 }
-
-class CTraceFilterIgnoreTeammates : public CTraceFilterSimple
-{
-public:
-	// It does have a base, but we'll never network anything below here..
-	DECLARE_CLASS( CTraceFilterIgnoreTeammates, CTraceFilterSimple );
-
-	CTraceFilterIgnoreTeammates( const IHandleEntity *passentity, int collisionGroup, int iIgnoreTeam )
-		: CTraceFilterSimple( passentity, collisionGroup ), m_iIgnoreTeam( iIgnoreTeam )
-	{
-	}
-
-	virtual bool ShouldHitEntity( IHandleEntity *pServerEntity, int contentsMask )
-	{
-		CBaseEntity *pEntity = EntityFromEntityHandle( pServerEntity );
-
-		if ( pEntity->IsPlayer() && pEntity->GetTeamNumber() == m_iIgnoreTeam )
-		{
-			return false;
-		}
-
-		return true;
-	}
-
-	int m_iIgnoreTeam;
-};
 
 //-----------------------------------------------------------------------------
 // Purpose: Return the origin & angles for a projectile fired from the player's gun

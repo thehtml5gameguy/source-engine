@@ -137,26 +137,48 @@ enum
 extern const char *g_aPlayerClassNames[];				// localized class names
 extern const char *g_aPlayerClassNames_NonLocalized[];	// non-localized class names
 
+int GetClassIndexFromString( const char *pClassName, int nLastClassIndex = TF_LAST_NORMAL_CLASS );
+
 //-----------------------------------------------------------------------------
 // For entity_capture_flags to use when placed in the world
+// NOTE: Inserting to most or all of the enums in this file will BREAK DEMOS -
+// please add to the end instead.
 //-----------------------------------------------------------------------------
-enum
+enum ETFFlagType
 {
 	TF_FLAGTYPE_CTF = 0,
 	TF_FLAGTYPE_ATTACK_DEFEND,
 	TF_FLAGTYPE_TERRITORY_CONTROL,
 	TF_FLAGTYPE_INVADE,
-	TF_FLAGTYPE_KINGOFTHEHILL,
+	TF_FLAGTYPE_RESOURCE_CONTROL,
+	TF_FLAGTYPE_ROBOT_DESTRUCTION,
+	TF_FLAGTYPE_PLAYER_DESTRUCTION
+
+	//
+	// ADD NEW ITEMS HERE TO AVOID BREAKING DEMOS
+	//
 };
+
 
 //-----------------------------------------------------------------------------
 // For the game rules to determine which type of game we're playing
 //-----------------------------------------------------------------------------
-enum
+enum ETFGameType
 {
 	TF_GAMETYPE_UNDEFINED = 0,
 	TF_GAMETYPE_CTF,
 	TF_GAMETYPE_CP,
+	TF_GAMETYPE_ESCORT,
+	TF_GAMETYPE_ARENA,
+	TF_GAMETYPE_MVM,
+	TF_GAMETYPE_RD,
+	TF_GAMETYPE_PASSTIME,
+	TF_GAMETYPE_PD,
+
+	//
+	// ADD NEW ITEMS HERE TO AVOID BREAKING DEMOS
+	//
+	TF_GAMETYPE_COUNT
 };
 extern const char *g_aGameTypeNames[];	// localized gametype names
 
@@ -361,7 +383,10 @@ extern const char *g_szProjectileNames[];
 #define TF_DISGUISE_TARGET_INDEX_NONE	( MAX_PLAYERS + 1 )
 #define TF_PLAYER_INDEX_NONE			( MAX_PLAYERS + 1 )
 
-enum
+//
+// ADD NEW WEAPONS HERE TO AVOID BREAKING DEMOS
+//
+enum ETFCond
 {
 	TF_COND_AIMING = 0,		// Sniper aiming, Heavy minigun.
 	TF_COND_ZOOMED,

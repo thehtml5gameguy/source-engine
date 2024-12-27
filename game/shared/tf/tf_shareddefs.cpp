@@ -1,4 +1,4 @@
-//====== Copyright © 1996-2004, Valve Corporation, All rights reserved. =======
+//====== Copyright ï¿½ 1996-2004, Valve Corporation, All rights reserved. =======
 //
 // Purpose: 
 //
@@ -60,6 +60,25 @@ const char *g_aPlayerClassNames_NonLocalized[] =
 	"Spy",
 	"Engineer"
 };
+
+int GetClassIndexFromString( const char *pClassName, int nLastClassIndex/*=TF_LAST_NORMAL_CLASS*/ )
+{
+	for ( int i = TF_FIRST_NORMAL_CLASS; i <= nLastClassIndex; ++i )
+	{
+		// compare first N characters to allow matching both "heavy" and "heavyweapons"
+		int classnameLength = V_strlen( g_aPlayerClassNames_NonLocalized[i] );
+
+		if ( V_strlen( pClassName ) < classnameLength )
+			continue;
+
+		if ( !V_strnicmp( g_aPlayerClassNames_NonLocalized[i], pClassName, classnameLength ) )
+		{
+			return i;
+		}
+	}
+
+	return TF_CLASS_UNDEFINED;
+}
 
 //-----------------------------------------------------------------------------
 // Gametypes.

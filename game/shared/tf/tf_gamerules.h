@@ -46,6 +46,10 @@
 
 #endif
 
+class CObjectSentrygun;
+class CTeamControlPoint;
+class CTFBotRoster;
+
 extern ConVar	tf_avoidteammates;
 
 extern Vector g_TFClassViewVectors[];
@@ -140,6 +144,7 @@ public:
 
 	void			RecalculateControlPointState( void );
 
+	int				GetAssignedHumanTeam( void ) { return TEAM_ANY; }; // TODO
 	virtual void	HandleSwitchTeams( void );
 	virtual void	HandleScrambleTeams( void );
 	bool			CanChangeClassInStalemate( void );
@@ -201,6 +206,20 @@ public:
 
 	const char *GetTeamGoalString( int iTeam );
 
+	virtual bool IsInArenaMode( void ) const { return false; }
+	virtual bool IsInKothMode( void ) const { return false; }
+	bool IsInMedievalMode( void ) const { return false; }
+	bool IsHolidayMap( int nHoliday ) const { return false; }
+
+	bool IsInTraining( void ){ return false; }
+	bool IsMannVsMachineMode( void ) const { return false; }
+	bool IsPVEModeActive( void ) const { return false; }
+
+	const CUtlVector< CHandle< CBaseEntity > > &GetHealthEntityVector( void );		// return vector of health entities 
+	const CUtlVector< CHandle< CBaseEntity > > &GetAmmoEntityVector( void );		// return vector of ammo entities 
+
+	void PushAllPlayersAway( const Vector& vFromThisPoint, float flRange, float flForce, int nTeam, CUtlVector< CTFPlayer* > *pPushedPlayers = NULL );
+
 	virtual bool	IsConnectedUserInfoChangeAllowed( CBasePlayer *pPlayer ) { return true; }
 
 #ifdef CLIENT_DLL
@@ -241,6 +260,17 @@ public:
 	void ClientSettingsChanged( CBasePlayer *pPlayer );
 	void ClientCommandKeyValues( edict_t *pEntity, KeyValues *pKeyValues );
 	void ChangePlayerName( CTFPlayer *pPlayer, const char *pszNewName );
+
+	bool            CanBotChangeClass( CBasePlayer* pPlayer );
+	bool            CanBotChooseClass( CBasePlayer *pPlayer, int iClass );
+
+	// populate vector with set of control points the player needs to capture
+	virtual void CollectCapturePoints( CBasePlayer *player, CUtlVector< CTeamControlPoint * > *captureVector ) const;
+
+	// populate vector with set of control points the player needs to defend from capture
+	virtual void CollectDefendPoints( CBasePlayer *player, CUtlVector< CTeamControlPoint * > *defendVector ) const;
+
+	CObjectSentrygun *FindSentryGunWithMostKills( int team = TEAM_ANY ) const;
 
 	virtual VoiceCommandMenuItem_t *VoiceCommand( CBaseMultiplayerPlayer *pPlayer, int iMenu, int iItem ); 
 
@@ -293,6 +323,16 @@ private:
 #endif
 
 private:
+	void ComputeHealthAndAmmoVectors( void );		// compute internal vectors of health and ammo locations
+	bool m_areHealthAndAmmoVectorsReady;
+
+private:
+
+	CUtlVector< CHandle< CBaseEntity > > m_ammoVector;			// vector of active ammo entities
+	bool m_isAmmoVectorReady;									// for lazy evaluation
+
+	CUtlVector< CHandle< CBaseEntity > > m_healthVector;		// vector of active health entities
+	bool m_isHealthVectorReady;									// for lazy evaluation
 
 #ifdef GAME_DLL
 
@@ -309,6 +349,10 @@ private:
 	int m_iCurrentRoundState;
 	int m_iCurrentMiniRoundMask;
 	float m_flTimerMayExpireAt;
+
+	// for bot rosters
+	CHandle<CTFBotRoster> m_hBlueBotRoster;
+	CHandle<CTFBotRoster> m_hRedBotRoster;
 
 	//TF_MOD_BOT changes
 	CUtlVector<EHANDLE> m_hAmmoEntities;

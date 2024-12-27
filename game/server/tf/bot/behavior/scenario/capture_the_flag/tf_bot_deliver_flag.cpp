@@ -1,150 +1,272 @@
-//========= Copyright © Valve LLC, All rights reserved. =======================
-//
-// Purpose:		
-//
-// $NoKeywords: $
-//=============================================================================
+//========= Copyright Valve Corporation, All rights reserved. ============//
+// tf_bot_deliver_flag.cpp
+// Take the flag we are holding to its destination
+// Michael Booth, May 2011
+
 #include "cbase.h"
-#include "tf_bot.h"
-#include "tf_gamerules.h"
-#include "entity_capture_flag.h"
-#include "func_capture_zone.h"
-#include "NavMeshEntities/func_nav_prerequisite.h"
-#include "tf_bot_deliver_flag.h"
-#include "behavior/nav_entities/tf_bot_nav_ent_wait.h"
-#include "behavior/nav_entities/tf_bot_nav_ent_move_to.h"
 
-const char *CTFBotDeliverFlag::GetName() const
+#include "tf_player_shared.h"
+
+#include "bot/tf_bot.h"
+#include "bot/behavior/scenario/capture_the_flag/tf_bot_deliver_flag.h"
+#include "bot/behavior/tf_bot_taunt.h"
+//#include "bot/behavior/tf_bot_mvm_deploy_bomb.h"
+
+#include "tf_objective_resource.h"
+//#include "player_vs_environment/tf_population_manager.h"
+//#include "econ_item_system.h"
+#include "tf_gamestats.h"
+
+#include "bot/behavior/nav_entities/tf_bot_nav_ent_move_to.h"
+#include "bot/behavior/nav_entities/tf_bot_nav_ent_wait.h"
+
+#include "particle_parse.h"
+
+ConVar tf_mvm_bot_allow_flag_carrier_to_fight( "tf_mvm_bot_allow_flag_carrier_to_fight", "1", FCVAR_CHEAT );
+
+ConVar tf_mvm_bot_flag_carrier_interval_to_1st_upgrade( "tf_mvm_bot_flag_carrier_interval_to_1st_upgrade", "5", FCVAR_CHEAT );
+ConVar tf_mvm_bot_flag_carrier_interval_to_2nd_upgrade( "tf_mvm_bot_flag_carrier_interval_to_2nd_upgrade", "15", FCVAR_CHEAT );
+ConVar tf_mvm_bot_flag_carrier_interval_to_3rd_upgrade( "tf_mvm_bot_flag_carrier_interval_to_3rd_upgrade", "15", FCVAR_CHEAT );
+
+ConVar tf_mvm_bot_flag_carrier_health_regen( "tf_mvm_bot_flag_carrier_health_regen", "45.0f", FCVAR_CHEAT );
+
+
+//---------------------------------------------------------------------------------------------
+ActionResult< CTFBot >	CTFBotDeliverFlag::OnStart( CTFBot *me, Action< CTFBot > *priorAction )
 {
-	return "DeliverFlag";
+	m_flTotalTravelDistance = -1.0f;
+
+	m_path.SetMinLookAheadDistance( me->GetDesiredPathLookAheadRange() );
+
+	if ( tf_mvm_bot_allow_flag_carrier_to_fight.GetBool() == false )
+	{
+		me->SetAttribute( CTFBot::SUPPRESS_FIRE );
+	}
+
+	return Continue();
 }
 
 
-ActionResult<CTFBot> CTFBotDeliverFlag::OnStart( CTFBot *me, Action<CTFBot> *priorAction )
+//---------------------------------------------------------------------------------------------
+// In Mann Vs Machine, the flag carrier gets stronger the longer he carries the flag
+bool CTFBotDeliverFlag::UpgradeOverTime( CTFBot *me )
 {
-	m_recomputePathTimer.Invalidate();
-	m_PathFollower.SetMinLookAheadDistance( me->GetDesiredPathLookAheadRange() );
 
-	// MvM carrier upgrade logic goes here
-
-	return BaseClass::Continue();
+	return false;
 }
 
-ActionResult<CTFBot> CTFBotDeliverFlag::Update( CTFBot *me, float dt )
-{
-	CCaptureFlag *pFlag = me->GetFlagToFetch();
-	if ( pFlag == nullptr )
-		return BaseClass::Done( "No flag" );
 
-	CTFPlayer *pCarrier = ToTFPlayer( pFlag->GetOwnerEntity() );
-	if ( pCarrier == nullptr || !me->IsSelf( pCarrier ) )
-		return BaseClass::Done( "I'm no longer carrying the flag" );
+//---------------------------------------------------------------------------------------------
+ActionResult< CTFBot > CTFBotDeliverFlag::Update( CTFBot *me, float interval )
+{
+	CCaptureFlag *flag = me->GetFlagToFetch();
+
+	if ( !flag )
+	{
+		return Done( "No flag" );
+	}
+
+	CTFPlayer *carrier = ToTFPlayer( flag->GetOwnerEntity() );
+	if ( !carrier || !me->IsSelf( carrier ) )
+	{
+		return Done( "I'm no longer carrying the flag" );
+	}
 
 	const CKnownEntity *threat = me->GetVisionInterface()->GetPrimaryKnownThreat();
 	if ( threat && threat->IsVisibleRecently() )
 	{
+		// prepare to fight
 		me->EquipBestWeaponForThreat( threat );
 	}
 
-	// MvM carrier upgrade logic goes here
-
-	if ( m_recomputePathTimer.IsElapsed() )
+	// deliver the flag
+	if ( m_repathTimer.IsElapsed() )
 	{
-		CCaptureZone *pZone = me->GetFlagCaptureZone();
-		if ( pZone == nullptr )
-			return BaseClass::Done( "No flag capture zone exists!" );
+		CCaptureZone *zone = me->GetFlagCaptureZone();
 
-		CTFBotPathCost func( me, FASTEST_ROUTE );
-		m_PathFollower.Compute( me, pZone->WorldSpaceCenter(), func );
+		if ( !zone )
+		{
+			return Done( "No flag capture zone exists!" );
+		}
 
-		m_recomputePathTimer.Start( RandomFloat( 1.0, 2.0 ) );
+		CTFBotPathCost cost( me, FASTEST_ROUTE );
+		m_path.Compute( me, zone->WorldSpaceCenter(), cost );
+
+		float flOldTravelDistance = m_flTotalTravelDistance;
+
+		m_flTotalTravelDistance = NavAreaTravelDistance( me->GetLastKnownArea(), TheNavMesh->GetNavArea( zone->WorldSpaceCenter() ), cost );
+
+		if ( flOldTravelDistance != -1.0f && m_flTotalTravelDistance - flOldTravelDistance > 2000.0f )
+		{
+			//TFGameRules()->BroadcastSound( 255, "Announcer.MVM_Bomb_Reset" );
+
+			// Look for players that helped with the reset and send an event
+			CUtlVector<CTFPlayer *> playerVector;
+			//CollectPlayers( &playerVector, TF_TEAM_PVE_DEFENDERS );
+			FOR_EACH_VEC( playerVector, i )
+			{
+				CTFPlayer *pPlayer = playerVector[i];
+				if ( !pPlayer )
+					continue;
+
+				/*
+				if ( me->m_AchievementData.IsPusherInHistory( pPlayer, 3.f ) )
+				{
+					IGameEvent *event = gameeventmanager->CreateEvent( "mvm_bomb_reset_by_player" );
+					if ( event )
+					{
+						event->SetInt( "player", pPlayer->entindex() );
+						gameeventmanager->FireEvent( event );
+					}
+
+					//CTF_GameStats.Event_PlayerAwardBonusPoints( pPlayer, me, 100 );
+				}
+				*/
+			}
+		}
+
+		m_repathTimer.Start( RandomFloat( 1.0f, 2.0f ) );
 	}
 
-	m_PathFollower.Update( me );
+	m_path.Update( me );
 
-	return BaseClass::Continue();
+	if ( UpgradeOverTime( me ) )
+	{
+		return SuspendFor( new CTFBotTaunt, "Taunting for our new upgrade" );
+	}
+
+	return Continue();
 }
 
-void CTFBotDeliverFlag::OnEnd( CTFBot *me, Action<CTFBot> *newAction )
+
+//---------------------------------------------------------------------------------------------
+void CTFBotDeliverFlag::OnEnd( CTFBot *me, Action< CTFBot > *nextAction )
 {
-	
+	me->ClearAttribute( CTFBot::SUPPRESS_FIRE );
+
+	if ( TFGameRules() && TFGameRules()->IsMannVsMachineMode() )
+	{
+		//me->m_Shared.ResetRageBuffs();
+	}
 }
 
 
-QueryResultType CTFBotDeliverFlag::ShouldHurry( const INextBot *nextbot ) const
+//---------------------------------------------------------------------------------------------
+QueryResultType CTFBotDeliverFlag::ShouldAttack( const INextBot *me, const CKnownEntity *them ) const
+{
+	if ( tf_mvm_bot_allow_flag_carrier_to_fight.GetBool() )
+	{
+		return ANSWER_UNDEFINED;
+	}
+
+	return ANSWER_NO;
+}
+
+
+//---------------------------------------------------------------------------------------------
+// are we in a hurry?
+QueryResultType CTFBotDeliverFlag::ShouldHurry( const INextBot *me ) const
 {
 	return ANSWER_YES;
 }
 
-QueryResultType CTFBotDeliverFlag::ShouldRetreat( const INextBot *nextbot ) const
+
+//---------------------------------------------------------------------------------------------
+// is it time to retreat?
+QueryResultType	CTFBotDeliverFlag::ShouldRetreat( const INextBot *me ) const
 {
 	return ANSWER_NO;
 }
 
 
-
-const char *CTFBotPushToCapturePoint::GetName() const
+//---------------------------------------------------------------------------------------------
+EventDesiredResult< CTFBot > CTFBotDeliverFlag::OnContact( CTFBot *me, CBaseEntity *other, CGameTrace *result )
 {
-	return "PushToCapturePoint";
+	return TryContinue();
 }
 
 
-ActionResult<CTFBot> CTFBotPushToCapturePoint::Update( CTFBot *me, float dt )
+//---------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------
+CTFBotPushToCapturePoint::CTFBotPushToCapturePoint( Action< CTFBot > *nextAction )
 {
-	CCaptureZone *pZone = me->GetFlagCaptureZone();
-	if ( pZone == nullptr )
-	{
-		if ( m_pDoneAction )
-			return BaseClass::ChangeTo( m_pDoneAction, "No flag capture zone exists!" );
+	m_nextAction = nextAction;
+}
 
-		return BaseClass::Done( "No flag capture zone exists!" );
+
+//---------------------------------------------------------------------------------------------
+ActionResult< CTFBot > CTFBotPushToCapturePoint::Update( CTFBot *me, float interval )
+{
+	// flag collection and delivery is handled by our parent behavior, ScenarioMonitor
+
+	CCaptureZone *zone = me->GetFlagCaptureZone();
+
+	if ( !zone )
+	{
+		if ( m_nextAction )
+		{
+			return ChangeTo( m_nextAction, "No flag capture zone exists!" );
+		}
+
+		return Done( "No flag capture zone exists!" );
 	}
 
-	if ( ( pZone->WorldSpaceCenter() - me->GetAbsOrigin() ).LengthSqr() < Square( 50.0f ) )
+	Vector toZone = zone->WorldSpaceCenter() - me->GetAbsOrigin();
+	if ( toZone.AsVector2D().IsLengthLessThan( 50.0f ) )
 	{
-		if ( m_pDoneAction )
-			return BaseClass::ChangeTo( m_pDoneAction, "At destination" );
+		if ( m_nextAction )
+		{
+			return ChangeTo( m_nextAction, "At destination" );
+		}
 
-		return BaseClass::Done( "At destination" );
+		return Done( "At destination" );
 	}
 
 	const CKnownEntity *threat = me->GetVisionInterface()->GetPrimaryKnownThreat();
 	if ( threat && threat->IsVisibleRecently() )
 	{
+		// prepare to fight
 		me->EquipBestWeaponForThreat( threat );
 	}
 
-	if ( m_recomputePathTimer.IsElapsed() )
+	if ( m_repathTimer.IsElapsed() )
 	{
-		CTFBotPathCost func( me, FASTEST_ROUTE );
-		m_PathFollower.Compute( me, pZone->WorldSpaceCenter(), func );
+		CTFBotPathCost cost( me, FASTEST_ROUTE );
+		m_path.Compute( me, zone->WorldSpaceCenter(), cost );
 
-		m_recomputePathTimer.Start( RandomFloat( 1.0, 2.0 ) );
+		m_repathTimer.Start( RandomFloat( 1.0f, 2.0f ) );
 	}
 
-	m_PathFollower.Update( me );
+	m_path.Update( me );
 
-	return BaseClass::Continue();
+	return Continue();
 }
 
-
-EventDesiredResult<CTFBot> CTFBotPushToCapturePoint::OnNavAreaChanged( CTFBot *me, CNavArea *area1, CNavArea *area2 )
+//-----------------------------------------------------------------------------------------
+EventDesiredResult< CTFBot > CTFBotPushToCapturePoint::OnNavAreaChanged( CTFBot *me, CNavArea *newArea, CNavArea *oldArea )
 {
-	if ( area1 == nullptr || !area1->HasPrerequisite() )
-		return BaseClass::TryContinue();
-
-	/*FOR_EACH_VEC( area1->GetPrerequisiteVector(), i )
+	// does the area we are entering have a prerequisite?
+	if ( newArea && newArea->HasPrerequisite( me ) )
 	{
-		CFuncNavPrerequisite *prereq = area1->GetPrerequisiteVector()[ i ];
-		if ( prereq == nullptr || !prereq->IsEnabled() || !prereq->PassesTriggerFilters( me ) )
-			continue;
+		const CUtlVector< CHandle< CFuncNavPrerequisite > > &prereqVector = newArea->GetPrerequisiteVector();
 
-		if ( prereq->IsTask( CFuncNavPrerequisite::TASK_WAIT ) )
-			return BaseClass::TrySuspendFor( new CTFBotNavEntMoveTo( prereq ), RESULT_TRY, "Prerequisite commands me to move to an entity" );
+		for( int i=0; i<prereqVector.Count(); ++i )
+		{
+			const CFuncNavPrerequisite *prereq = prereqVector[i];
+			if ( prereq && prereq->IsEnabled() && const_cast< CFuncNavPrerequisite * >( prereq )->PassesTriggerFilters( me ) )
+			{
+				// this prerequisite applies to me
+				if ( prereq->IsTask( CFuncNavPrerequisite::TASK_WAIT ) )
+				{
+					return TrySuspendFor( new CTFBotNavEntWait( prereq ), RESULT_IMPORTANT, "Prerequisite commands me to wait" );
+				}
+				else if ( prereq->IsTask( CFuncNavPrerequisite::TASK_MOVE_TO_ENTITY ) )
+				{
+					return TrySuspendFor( new CTFBotNavEntMoveTo( prereq ), RESULT_IMPORTANT, "Prerequisite commands me to move to an entity" );
+				}
+			}
+		}
+	}
 
-		if ( prereq->IsTask( CFuncNavPrerequisite::TASK_MOVE_TO_ENTITY ) )
-			return BaseClass::TrySuspendFor( new CTFBotNavEntWait( prereq ), RESULT_TRY, "Prerequisite commands me to wait" );
-	}*/
-
-	return BaseClass::TryContinue();
+	return TryContinue();
 }

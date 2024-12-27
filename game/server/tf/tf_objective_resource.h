@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2006, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2006, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: DOD's objective resource, transmits all objective states to players
 //
@@ -23,6 +23,11 @@ public:
 
 	virtual void Spawn( void );
 };
+
+inline CTFObjectiveResource *TFObjectiveResource()
+{
+	return static_cast< CTFObjectiveResource *>( g_pObjectiveResource );
+}
 
 #endif	// TF_OBJECTIVE_RESOURCE_H
 

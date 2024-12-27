@@ -1,4 +1,4 @@
-//===== Copyright © 1996-2005, Valve Corporation, All rights reserved. ======//
+//===== Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ======//
 //
 // Purpose:
 //
@@ -598,6 +598,20 @@ void CTeamControlPointMaster::CPMThink( void )
 
 	// the next time we 'think'
 	SetContextThink( &CTeamControlPointMaster::CPMThink, gpGlobals->curtime + 0.2, CPM_THINK );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+bool CTeamControlPointMaster::IsInRound( CTeamControlPoint *pPoint )
+{
+	// are we playing a round and is this point in the round?
+	if ( m_ControlPointRounds.Count() > 0 && m_iCurrentRoundIndex != -1 )
+	{
+		return m_ControlPointRounds[m_iCurrentRoundIndex]->IsControlPointInRound( pPoint );
+	}
+
+	return true;
 }
 
 //-----------------------------------------------------------------------------

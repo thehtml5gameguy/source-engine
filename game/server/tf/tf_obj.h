@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright ï¿½ 1996-2005, Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Base Object built by a player
 //
@@ -109,6 +109,7 @@ public:
 	bool			IsPlacing( void ) { return m_bPlacing; };
 	virtual bool	IsUpgrading( void ) const { return false; }
 	bool			MustBeBuiltOnAttachmentPoint( void ) const;
+	bool			IsCarried( void ) const { return false; } // TODO?
 
 	// Returns information about the various control panels
 	virtual void 	GetControlPanelInfo( int nPanelIndex, const char *&pPanelName );
