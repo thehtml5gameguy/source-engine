@@ -779,6 +779,8 @@ const char *CTFBot::GetNextSpawnClassname( void ) const
 	};
 
 	// if we are an engineer with an active sentry or teleporters, don't switch
+	// HACK: Commented this out to prevent engineer gaming from happaning for some reason.
+	/*
 	if ( IsPlayerClass( TF_CLASS_ENGINEER ) )
 	{
 		if ( const_cast< CTFBot * >( this )->GetObjectOfType( OBJ_SENTRYGUN ) ||
@@ -787,6 +789,7 @@ const char *CTFBot::GetNextSpawnClassname( void ) const
 			return "engineer";
 		}
 	}
+	*/
 
 	// count classes in use by my team, not including me
 	CCountClassMembers currentRoster( this, GetTeamNumber() );
@@ -819,6 +822,17 @@ const char *CTFBot::GetNextSpawnClassname( void ) const
 		CUtlVector< CTeamControlPoint * > defendVector;
 		TFGameRules()->CollectDefendPoints( const_cast< CTFBot * >( this ), &defendVector );
 
+		if (GetTeamNumber() == TF_TEAM_BLUE)
+		{
+			desiredRoster = offenseRoster;
+		}
+		else
+		{
+			desiredRoster = defenseRoster;
+		}
+
+		// I don't think this works in 2007 tf2
+		/*
 		// if we have any points we can capture, try to do so
 		if ( captureVector.Count() > 0 || defendVector.Count() == 0 )
 		{
@@ -828,6 +842,7 @@ const char *CTFBot::GetNextSpawnClassname( void ) const
 		{
 			desiredRoster = defenseRoster;
 		}
+		*/
 	}
 	else if ( TFGameRules()->GetGameType() == TF_GAMETYPE_ESCORT )
 	{

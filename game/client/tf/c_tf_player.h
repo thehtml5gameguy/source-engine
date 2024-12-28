@@ -148,6 +148,8 @@ public:
 
 	void			SetHealer( C_TFPlayer *pHealer, float flChargeLevel );
 	void			GetHealer( C_TFPlayer **pHealer, float *flChargeLevel ) { *pHealer = m_hHealer; *flChargeLevel = m_flHealerChargeLevel; }
+	float			MedicGetChargeLevel( CTFWeaponBase **pRetMedigun = NULL );
+	CBaseEntity		*MedicGetHealTarget( void );
 
 	void			StartBurningSound( void );
 	void			StopBurningSound( void );

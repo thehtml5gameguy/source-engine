@@ -16,6 +16,7 @@
 	#include "vstdlib/random.h"
 	#include "engine/IEngineSound.h"
 	#include "soundenvelope.h"
+	#include "prediction.h"
 
 #else
 
@@ -33,7 +34,6 @@
 	ConVar  tf_flamethrower_velocity( "tf_flamethrower_velocity", "2300.0", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY, "Initial velocity of flame damage entities." );
 	ConVar	tf_flamethrower_drag("tf_flamethrower_drag", "0.89", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY, "Air drag of flame damage entities." );
 	ConVar	tf_flamethrower_float("tf_flamethrower_float", "50.0", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY, "Upward float velocity of flame damage entities." );
-	ConVar  tf_flamethrower_burstammo("tf_flamethrower_burstammo", "20", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY, "How much ammo does the air burst uses per shot." );
 	ConVar  tf_flamethrower_flametime("tf_flamethrower_flametime", "0.5", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY, "Time to live of flame damage entities." );
 	ConVar  tf_flamethrower_vecrand("tf_flamethrower_vecrand", "0.05", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY, "Random vector added to initial velocity of flame damage entities." );
 	ConVar  tf_flamethrower_boxsize("tf_flamethrower_boxsize", "8.0", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY, "Size of flame damage entities." );
@@ -44,6 +44,8 @@
 	ConVar	tf_flamethrower_burst_zvelocity( "tf_flamethrower_burst_zvelocity", "350", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
 	//ConVar  tf_flame_force( "tf_flame_force", "30" );
 #endif
+
+ConVar  tf_flamethrower_burstammo("tf_flamethrower_burstammo", "20", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY | FCVAR_REPLICATED, "How much ammo does the air burst uses per shot." );
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -429,7 +431,6 @@ void CTFFlameThrower::PrimaryAttack()
 }
 
 
-#ifdef GAME_DLL
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -441,8 +442,14 @@ void CTFFlameThrower::FireAirBlast( int iAmmoPerShot )
 
 	m_bFiredSecondary = true;
 
+#ifdef CLIENT_DLL
+	// Stop the flame if we're currently firing
+	StopFlame( false );
+#endif
+
 	SetWeaponState( FT_STATE_SECONDARY );
 
+#ifdef GAME_DLL
 	SendWeaponAnim( ACT_VM_SECONDARYATTACK );
 	pOwner->DoAnimationEvent( PLAYERANIMEVENT_ATTACK_SECONDARY );
 
@@ -476,6 +483,14 @@ void CTFFlameThrower::FireAirBlast( int iAmmoPerShot )
 
 	// compression blast doesn't go through the normal "weapon fired" code path
 	TheNextBots().OnWeaponFired( pOwner, this );
+#endif
+
+#ifdef CLIENT_DLL
+	if ( prediction->IsFirstTimePredicted() == true )
+	{
+		StartFlame();
+	}
+#endif
 
 	float fAirblastRefireTimeScale = 1.0f;
 	if ( fAirblastRefireTimeScale <= 0.0f  )
@@ -506,9 +521,7 @@ void CTFFlameThrower::FireAirBlast( int iAmmoPerShot )
 	EmitSound( "Weapon_FlameThrower.AirBurstAttack" );
 	DispatchParticleEffect("pyro_blast", PATTACH_POINT_FOLLOW, this, "muzzle");
 }
-#endif
 
-#ifdef GAME_DLL
 void CTFFlameThrower::SetWeaponState( int nWeaponState )
 {
 	if ( m_iWeaponState == nWeaponState )
@@ -543,9 +556,7 @@ void CTFFlameThrower::SetWeaponState( int nWeaponState )
 
 	m_iWeaponState = nWeaponState;
 }
-#endif
 
-#ifdef GAME_DLL
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -602,8 +613,6 @@ void CTFFlameThrower::SecondaryAttack()
 	// @todo replace with the correct one
 	WeaponSound( SINGLE );
 }
-#endif
-
 
 #ifdef GAME_DLL
 

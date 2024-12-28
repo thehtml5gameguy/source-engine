@@ -72,13 +72,11 @@ public:
 	virtual void	DestroySounds( void );
 	virtual void	Precache( void );
 
-#ifdef GAME_DLL
-	bool			CanAirBlast() const { return true; };
-
-	bool			SupportsAirBlastFunction( EFlameThrowerAirblastFunction eFunction ) const;
-	void			FireAirBlast( int iAmmoPerShot );
-
 	void			SetWeaponState( int nWeaponState );
+	bool			CanAirBlast() const { return true; };
+	void			FireAirBlast( int iAmmoPerShot );
+#ifdef GAME_DLL
+	bool			SupportsAirBlastFunction( EFlameThrowerAirblastFunction eFunction ) const;
 #endif
 
 	Vector GetVisualMuzzlePos();
@@ -112,9 +110,7 @@ private:
 	CNetworkVar( int, m_iWeaponState );
 	CNetworkVar( bool, m_bCritFire );
 
-#if GAME_DLL
 	float m_flChargeBeginTime; // This should be a network var
-#endif
 
 	float m_flStartFiringTime;
 	float m_flNextPrimaryAttackAnim;

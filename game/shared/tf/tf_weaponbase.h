@@ -292,6 +292,10 @@ class CTFWeaponBase : public CBaseCombatWeapon
 // Client specific.
 #else
 
+	bool			IsFirstPersonView();
+	bool			UsingViewModel();
+	C_BaseAnimating *GetAppropriateWorldOrViewModel();
+
 	virtual void	ProcessMuzzleFlashEvent( void );
 	virtual int		InternalDrawModel( int flags );
 

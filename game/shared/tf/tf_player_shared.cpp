@@ -235,7 +235,7 @@ void CTFPlayerShared::RemoveCond( int nCond )
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-bool CTFPlayerShared::InCond( int nCond )
+bool CTFPlayerShared::InCond( int nCond ) const
 {
 	Assert( nCond >= 0 && nCond < TF_COND_LAST );
 

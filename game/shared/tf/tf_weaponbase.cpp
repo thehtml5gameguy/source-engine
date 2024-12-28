@@ -1249,6 +1249,58 @@ const Vector &CTFWeaponBase::GetBulletSpread( void )
 void TE_DynamicLight( IRecipientFilter& filter, float delay,
 					 const Vector* org, int r, int g, int b, int exponent, float radius, float time, float decay, int nLightIndex = LIGHT_INDEX_TE_DYNAMIC );
 
+bool CTFWeaponBase::IsFirstPersonView()
+{
+	C_TFPlayer *pPlayerOwner = GetTFPlayerOwner();
+	if ( pPlayerOwner == NULL )
+	{
+		return false;
+	}
+	return pPlayerOwner->InFirstPersonView();
+}
+
+bool CTFWeaponBase::UsingViewModel()
+{
+	C_TFPlayer *pPlayerOwner = GetTFPlayerOwner();
+	bool bIsFirstPersonView = IsFirstPersonView();
+	bool bUsingViewModel = bIsFirstPersonView && ( pPlayerOwner != NULL ) && !pPlayerOwner->ShouldDrawThisPlayer();
+	return bUsingViewModel;
+}
+
+C_BaseAnimating *CTFWeaponBase::GetAppropriateWorldOrViewModel()
+{
+	C_TFPlayer *pPlayerOwner = GetTFPlayerOwner();
+	if ( pPlayerOwner && UsingViewModel() )
+	{
+		// For w_* models the viewmodel itself is just arms+hands. And attached to them is the actual weapon.
+		/*
+		const CEconItemView *pItem = GetAttributeContainer()->GetItem();
+		if ( pItem->IsValid() && pItem->GetStaticData()->ShouldAttachToHands() )
+		{
+			C_BaseAnimating *pVMAttach = GetViewmodelAttachment();
+			if ( pVMAttach != NULL )
+			{
+				return pVMAttach;
+			}
+		}
+		*/
+
+		// Nope - it's a standard viewmodel.
+		C_BaseAnimating *pViewModel = pPlayerOwner->GetViewModel();
+		if ( pViewModel != NULL )
+		{
+			return pViewModel;
+		}
+
+		// No viewmodel, so just return the normal model.
+		return this;
+	}
+	else
+	{
+		return this;
+	}
+}
+
 //=============================================================================
 //
 // TFWeaponBase functions (Client specific).
