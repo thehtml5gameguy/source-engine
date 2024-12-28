@@ -2288,7 +2288,6 @@ bool CTFWeaponBase::DeflectProjectiles()
 
 	for ( int i = 0; i < count; i++ )
 	{
-		Msg("Entity: %s\n", pObjects[i]->GetClassname());
 		if ( pObjects[i] == pOwner )
 			continue;
 
