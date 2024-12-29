@@ -75,7 +75,7 @@ public:
 #endif
 
 	void			SetChargeLevel( float flChargeLevel ) { m_flChargeLevel = flChargeLevel; }
-	float			GetChargeLevel( void ) { return m_flChargeLevel; }
+	float			GetChargeLevel( void ) const { return m_flChargeLevel; }
 	float			GetMinChargeAmount( void ) const { return 1.f; };
 
 private:
