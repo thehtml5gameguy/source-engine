@@ -74,6 +74,19 @@ public:
 	CTFPlayer();
 	~CTFPlayer();
 
+	//=============================================================================
+	// HPE_BEGIN:
+	// [msmith]	Added a player type so we can distinguish between bots and humans.
+	//=============================================================================
+	enum TFPlayerType{
+		HUMAN_PLAYER,
+		TEMP_BOT,
+		TRAINING_BOT
+	};
+	//=============================================================================
+	// HPE_END
+	//=============================================================================
+
 	// Creation/Destruction.
 	static CTFPlayer	*CreatePlayer( const char *className, edict_t *ed );
 	static CTFPlayer	*Instance( int iEnt );
@@ -332,6 +345,16 @@ public:
 
 	virtual bool IsDeflectable() { return true; }
 
+	//=============================================================================
+	// HPE_BEGIN:
+	// [msmith]	Added a player type so we can distinguish between bots and humans.
+	//=============================================================================
+	inline TFPlayerType GetPlayerType(){ return m_playerType; }
+	inline void SetPlayerType( TFPlayerType playerType ){ m_playerType = playerType; }
+	//=============================================================================
+	// HPE_END
+	//=============================================================================
+
 	bool IsThreatAimingTowardMe( CBaseEntity *threat, float cosTolerance = 0.8f ) const;	// return true if the given threat is aiming in our direction
 	bool IsThreatFiringAtMe( CBaseEntity *threat ) const;		// return true if the given threat is aiming in our direction and firing its weapon
 	bool IsInCombat( void ) const;								// return true if we are engaged in active combat
@@ -416,6 +439,15 @@ public:
 
 	CTFWeaponBase		*Weapon_OwnsThisID( int iWeaponID );
 	CTFWeaponBase		*Weapon_GetWeaponByType( int iType );
+
+	//=============================================================================
+	// HPE_BEGIN:
+	// [msmith]	Added a player type so we can distinguish between bots and humans.
+	//=============================================================================
+	TFPlayerType m_playerType;
+	//=============================================================================
+	// HPE_END
+	//=============================================================================
 
 	//TF_MOD_BOT changes
 	IntervalTimer m_lastCalledMedic;

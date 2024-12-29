@@ -9,6 +9,10 @@
 #include "NextBotInterface.h"
 #include "NextBotManager.h"
 
+#ifdef TERROR
+#include "player_lagcompensation.h"
+#endif
+
 class NextBotCombatCharacter;
 struct animevent_t;
 

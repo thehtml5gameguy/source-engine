@@ -105,7 +105,7 @@ void PlayerBody::Reset( void )
 	m_anchorForward = vec3_origin;
 }
 
-extern ConVar bot_mimic;// ( "bot_mimic", "0", 0, "Bot uses usercmd of player by index." );
+ConVar bot_mimic( "bot_mimic", "0", 0, "Bot uses usercmd of player by index." );
 
 //-----------------------------------------------------------------------------------------------
 /**
@@ -344,7 +344,7 @@ const Vector &PlayerBody::GetEyePosition( void ) const
 }
 
 
-CBaseCombatCharacter *PlayerBody::GetEntity( void ) const
+CBaseEntity *PlayerBody::GetEntity( void )
 {
 	return m_player;
 }
@@ -824,7 +824,7 @@ float PlayerBody::GetStandHullHeight( void ) const
  */
 float PlayerBody::GetCrouchHullHeight( void ) const
 {
-	return VEC_DUCK_HULL_MAX.z - VEC_DUCK_HULL_MIN.z;
+	return VEC_DUCK_HULL_MAX_SCALED( m_player ).z - VEC_DUCK_HULL_MIN_SCALED( m_player ).z;
 }
 
 
@@ -836,11 +836,11 @@ const Vector &PlayerBody::GetHullMins( void ) const
 {
 	if ( m_posture == CROUCH )
 	{
-		m_hullMins = VEC_DUCK_HULL_MIN;
+		m_hullMins = VEC_DUCK_HULL_MIN_SCALED( m_player );
 	}
 	else
 	{
-		m_hullMins = VEC_HULL_MIN;
+		m_hullMins = VEC_HULL_MIN_SCALED( m_player );
 	}
 	
 	return m_hullMins;
