@@ -1636,19 +1636,17 @@ CCaptureFlag *CTFBot::GetFlagToFetch( void ) const
 
 		switch( flag->GetGameType() )
 		{
-		case TF_GAMETYPE_CTF:
+		case TF_FLAGTYPE_CTF:
 			if ( flag->GetTeamNumber() == GetEnemyTeam( GetTeamNumber() ) )
 			{
 				// we want to steal the other team's flag
 				flagsVector.AddToTail( flag );
 			}
 			break;
-		/*
+
 		case TF_FLAGTYPE_ATTACK_DEFEND:
 		case TF_FLAGTYPE_TERRITORY_CONTROL:
 		case TF_FLAGTYPE_INVADE:
-		*/
-		case TF_GAMETYPE_CP:
 			if ( flag->GetTeamNumber() != GetEnemyTeam( GetTeamNumber() ) )
 			{
 				// we want to move our team's flag or a neutral flag
