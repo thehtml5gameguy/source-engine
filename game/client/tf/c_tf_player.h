@@ -176,10 +176,10 @@ public:
 public:
 	// Shared functions
 	void			TeamFortress_SetSpeed();
-	bool			HasItem( void );					// Currently can have only one item at a time.
+	bool			HasItem( void ) const;					// Currently can have only one item at a time.
 	void			SetItem( C_TFItem *pItem );
-	C_TFItem		*GetItem( void );
-	bool			HasTheFlag( void );
+	C_TFItem		*GetItem( void ) const;
+	bool			HasTheFlag( void ) const;
 	float			GetCritMult( void ) { return m_Shared.GetCritMult(); }
 
 	virtual void	ItemPostFrame( void );

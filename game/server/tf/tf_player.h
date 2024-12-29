@@ -121,9 +121,9 @@ public:
 	void				ImpactWaterTrace( trace_t &trace, const Vector &vecStart );
 	void				NoteWeaponFired();
 
-	bool				HasItem( void );					// Currently can have only one item at a time.
+	bool				HasItem( void ) const;					// Currently can have only one item at a time.
 	void				SetItem( CTFItem *pItem );
-	CTFItem				*GetItem( void );
+	CTFItem				*GetItem( void ) const;
 
 	void				Regenerate( void );
 	float				GetNextRegenTime( void ){ return m_flNextRegenerateTime; }
@@ -258,7 +258,7 @@ public:
 
 	void TeleportEffect( void );
 	void RemoveTeleportEffect( void );
-	bool HasTheFlag( void );
+	bool HasTheFlag( void ) const;
 
 	// Death & Ragdolls.
 	virtual void CreateRagdollEntity( void );

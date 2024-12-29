@@ -871,7 +871,7 @@ void CWeaponMedigun::SecondaryAttack( void )
 
 	// Start super charge
 	m_bChargeRelease = true;
-	m_flReleaseStartedAt = 0;//gpGlobals->curtime;
+	m_flReleaseStartedAt = gpGlobals->curtime;
 
 #ifdef GAME_DLL
 	CTF_GameStats.Event_PlayerInvulnerable( pOwner );

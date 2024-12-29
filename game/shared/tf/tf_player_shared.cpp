@@ -2200,7 +2200,7 @@ void CTFPlayer::TeamFortress_SetSpeed()
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-bool CTFPlayer::HasItem( void )
+bool CTFPlayer::HasItem( void ) const
 {
 	return ( m_hItem != NULL );
 }
@@ -2223,7 +2223,7 @@ void CTFPlayer::SetItem( CTFItem *pItem )
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-CTFItem	*CTFPlayer::GetItem( void )
+CTFItem	*CTFPlayer::GetItem( void ) const
 {
 	return m_hItem;
 }
@@ -2231,7 +2231,7 @@ CTFItem	*CTFPlayer::GetItem( void )
 //-----------------------------------------------------------------------------
 // Purpose: Is the player allowed to use a teleporter ?
 //-----------------------------------------------------------------------------
-bool CTFPlayer::HasTheFlag( void )
+bool CTFPlayer::HasTheFlag( void ) const
 {
 	if ( HasItem() && GetItem()->GetItemID() == TF_ITEM_CAPTURE_FLAG )
 	{
