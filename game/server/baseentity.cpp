@@ -64,6 +64,10 @@
 #include "tier1/mapbase_con_groups.h"
 #include "utlhashtable.h"
 
+#ifdef MAPBASE_VSCRIPT
+#include "mapbase/matchers.h"
+#endif
+
 #if defined( TF_DLL )
 #include "tf_gamerules.h"
 #endif
@@ -7111,6 +7115,131 @@ int CBaseEntity::FindContextByName( const char *name ) const
 
 	return -1;
 }
+
+#ifdef MAPBASE_VSCRIPT
+//-----------------------------------------------------------------------------
+// Purpose: Searches entity for named context string and/or value.
+//          Intended to be called by entities rather than the conventional response system.
+// Input  : *name - Context name.
+//          *value - Context value. (optional)
+// Output : bool
+//-----------------------------------------------------------------------------
+bool CBaseEntity::HasContext( const char *name, const char *value ) const
+{
+	int c = m_ResponseContexts.Count();
+	for ( int i = 0; i < c; i++ )
+	{
+		if ( Matcher_NamesMatch( name, STRING(m_ResponseContexts[i].m_iszName) ) )
+		{
+			if (value == NULL)
+				return true;
+			else
+				return Matcher_Match(STRING(m_ResponseContexts[i].m_iszValue), value);
+		}
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Searches entity for named context string and/or value.
+//          Intended to be called by entities rather than the conventional response system.
+// Input  : *name - Context name.
+//          *value - Context value. (optional)
+// Output : bool
+//-----------------------------------------------------------------------------
+bool CBaseEntity::HasContext( string_t name, string_t value ) const
+{
+	int c = m_ResponseContexts.Count();
+	for ( int i = 0; i < c; i++ )
+	{
+		if ( name == m_ResponseContexts[i].m_iszName )
+		{
+			if (value == NULL_STRING)
+				return true;
+			else
+				return value == m_ResponseContexts[i].m_iszValue;
+		}
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Searches entity for named context string and/or value.
+//          Intended to be called by entities rather than the conventional response system.
+// Input  : *nameandvalue - Context name and value.
+// Output : bool
+//-----------------------------------------------------------------------------
+bool CBaseEntity::HasContext( const char *nameandvalue ) const
+{
+	char key[ 128 ];
+	char value[ 128 ];
+
+	const char *p = nameandvalue;
+	while ( p )
+	{
+		p = SplitContext( p, key, sizeof( key ), value, sizeof( value ), NULL );
+		
+		return HasContext( key, value );
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : index - 
+// Output : const char
+//-----------------------------------------------------------------------------
+const char *CBaseEntity::GetContextValue( const char *contextName ) const
+{
+	int idx = FindContextByName( contextName );
+	if ( idx == -1 )
+		return "";
+
+	return m_ResponseContexts[ idx ].m_iszValue.ToCStr();
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+float CBaseEntity::GetContextExpireTime( const char *name )
+{
+	int idx = FindContextByName( name );
+	if ( idx == -1 )
+		return 0.0f;
+
+	return m_ResponseContexts[ idx ].m_fExpirationTime;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Internal method or removing contexts and can remove multiple contexts in one call
+// Input  : *contextName - 
+//-----------------------------------------------------------------------------
+void CBaseEntity::RemoveContext( const char *contextName )
+{
+	char key[ 128 ];
+	char value[ 128 ];
+	float duration;
+
+	const char *p = contextName;
+	while ( p )
+	{
+		duration = 0.0f;
+		p = SplitContext( p, key, sizeof( key ), value, sizeof( value ), &duration );
+		if ( duration )
+		{
+			duration += gpGlobals->curtime;
+		}
+
+		int iIndex = FindContextByName( key );
+		if ( iIndex != -1 )
+		{
+			m_ResponseContexts.Remove( iIndex );
+		}
+	}
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 

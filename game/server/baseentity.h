@@ -909,6 +909,18 @@ protected:
 	const char *GetContextValue( int index ) const; 	// note: context may be expired
 	bool ContextExpired( int index ) const;
 	int FindContextByName( const char *name ) const;
+
+#ifdef MAPBASE_VSCRIPT
+public:
+
+	bool	HasContext( const char *name, const char *value ) const;
+	bool	HasContext( string_t name, string_t value ) const; // NOTE: string_t version only compares pointers!
+	bool	HasContext( const char *nameandvalue ) const;
+	const char *GetContextValue( const char *contextName ) const;
+	float	GetContextExpireTime( const char *name );
+	void	RemoveContext( const char *nameandvalue );
+#endif
+
 public:
 	void	AddContext( const char *nameandvalue );
 	void	AddContext( const char *name, const char *value, float duration = 0.0f );

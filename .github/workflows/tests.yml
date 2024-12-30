@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-20.04]
-        bits: ['', '--64bits']
+        bits: ['', '--32bits']
         android: ['']
     runs-on: ${{ matrix.os }}
     env:
@@ -51,7 +51,7 @@ jobs:
           submodules: recursive
 
       - name: Configure
-        run: ./waf configure --64bits $WAF_FLAGS
+        run: ./waf configure $WAF_FLAGS
       - name: Build macos-amd64
         run: ./waf install
       - name: Run tests
@@ -63,7 +63,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-2019]
-        bits: ['', '--64bits']
+        bits: ['', '--32bits']
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
