@@ -2960,7 +2960,7 @@ inline const char* CBaseEntity::ScriptGetModelName(void) const
 	do \
 	{ \
 		m_pfnMoveDone = static_cast <void (CBaseEntity::*)(void)> (a); \
-		FunctionCheck( * (inputfunc_t *)(((char *)this + ( offsetof(CBaseEntity,m_pfnMoveDone)))), "BaseMoveFunc" ); \
+		FunctionCheck( (void *)*((int *)((char *)this + ( offsetof(CBaseEntity,m_pfnMoveDone)))), "BaseMoveFunc" ); 
 	} while ( 0 )
 #else
 #define SetMoveDone( a ) \

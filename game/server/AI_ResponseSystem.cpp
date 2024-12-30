@@ -3054,7 +3054,7 @@ CON_COMMAND( rr_reloadresponsesystems, "Reload all response system scripts." )
 bool ResponseSystemCompare( const char *criterion, const char *value )
 {
 	Criteria criteria;
-	criteria.value = criterion;
+	criteria.value = (char *)criterion;
 	defaultresponsesytem.ComputeMatcher( &criteria, criteria.matcher );
 	return defaultresponsesytem.CompareUsingMatcher( value, criteria.matcher, true );
 

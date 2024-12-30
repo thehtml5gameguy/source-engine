@@ -2,7 +2,7 @@ name: Build
 
 on: [push, pull_request]
 env:
-  WAF_FLAGS: -T debug --disable-warns --prefix=build_hl2
+  WAF_FLAGS: -T release --disable-warns --prefix=build_hl2
 
 jobs:
   build-linux:
@@ -29,7 +29,7 @@ jobs:
       - name: Install common dependencies
         run: sudo apt-get update && sudo apt-get install -y g++-multilib gcc-multilib
       - name: Install 32bit dependencies
-        if: ${{ matrix.bits == '' && !matrix.android }}
+        if: ${{ matrix.bits != '' && !matrix.android }}
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update
@@ -41,7 +41,7 @@ jobs:
         run: |
           sudo apt-get install -y $DEPS
       - name: Install Android dependencies
-        if: ${{ matrix.android != '' }}
+        if: ${{ matrix.android == '' }}
         run: |
           wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip -o /dev/null
           unzip android-ndk-r10e-linux-x86_64.zip
