@@ -34,6 +34,10 @@
 #include "vstdlib/jobthread.h"
 #include "tier1/microprofiler.h"
 
+#if !COMPILER_GCC 
+#include <atomic>
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -1727,8 +1731,8 @@ IterationRetval_t CTraceListData::EnumElement( IHandleEntity *pHandleEntity )
 		Assert( 0 );
 		if ( pCollideable->GetCollisionModel() )
 		{
-			Msg("%s in solid list (not solid) (%d, %04X) %.*s\n", m_pEngineTrace->GetDebugName(pHandleEntity), pCollideable->GetSolid(), pCollideable->GetSolidFlags(),
-				sizeof( pCollideable->GetCollisionModel()->strName ), pCollideable->GetCollisionModel()->strName );
+			Msg("%s in solid list (not solid) (%d, %04X) %s\n", m_pEngineTrace->GetDebugName(pHandleEntity), pCollideable->GetSolid(), pCollideable->GetSolidFlags(),
+				pCollideable->GetCollisionModel()->strName.Get() );
 		}
 		else
 		{
