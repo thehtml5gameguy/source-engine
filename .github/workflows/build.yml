@@ -123,9 +123,3 @@ jobs:
           path: |
             build_hl2
             !build_hl2/**/*.pdb
-      - name: 'Upload debug symbols'
-        uses: actions/upload-artifact@v3
-        with:
-          name: windows${{matrix.bits}}${{matrix.flags}}
-          path: |
-            build_hl2/**/*.pdb
