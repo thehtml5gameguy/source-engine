@@ -41,7 +41,7 @@ jobs:
         run: |
           sudo apt-get install -y $DEPS
       - name: Install Android dependencies
-        if: ${{ matrix.android == '' }}
+        if: ${{ matrix.android != '' }}
         run: |
           wget https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip -o /dev/null
           unzip android-ndk-r10e-linux-x86_64.zip
