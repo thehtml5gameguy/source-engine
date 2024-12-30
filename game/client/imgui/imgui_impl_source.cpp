@@ -163,14 +163,15 @@ bool ImGui_ImplSource_Init()
 {
 	// Setup backend capabilities flags
 	ImGuiIO &io = ImGui::GetIO();
+	ImGuiPlatformIO &platform_io = ImGui::GetPlatformIO();
 	io.BackendPlatformName = "source";
 	io.BackendRendererName = "imgui_impl_source";
 	io.BackendFlags = ImGuiBackendFlags_None;
-	io.SetClipboardTextFn = []( void *, const char *c )
+	platform_io.Platform_SetClipboardTextFn = []( void *, const char *c )
 	{
 		vgui::system()->SetClipboardText( c, V_strlen( c ) );
 	};
-	io.GetClipboardTextFn = []( void *ctx ) -> const char *
+	platform_io.Platform_GetClipboardTextFn = []( void *ctx ) -> const char *
 	{
 		auto &g = *static_cast<ImGuiContext *>( ctx );
 		g.ClipboardHandlerData.clear();
