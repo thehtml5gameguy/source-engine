@@ -116,17 +116,16 @@ jobs:
         run: ./waf configure ${{ matrix.bits }} ${{ matrix.flags }} ${{ env.WAF_FLAGS }}
       - name: Build ${{ matrix.os }}
         run: ./waf install
-
-    - name: 'Upload build'
-      uses: actions/upload-artifact@v3
-      with:
-        name: windows${{matrix.bits}}${{matrix.flags}}
-        path: |
+      - name: 'Upload build'
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows${{matrix.bits}}${{matrix.flags}}
+          path: |
             build_hl2
             !build_hl2/**/*.pdb
-    - name: 'Upload debug symbols'
-      uses: actions/upload-artifact@v3
-      with:
-        name: windows${{matrix.bits}}${{matrix.flags}}
-        path: |
+      - name: 'Upload debug symbols'
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows${{matrix.bits}}${{matrix.flags}}
+          path: |
             build_hl2/**/*.pdb
