@@ -37,7 +37,7 @@ jobs:
           sudo aptitude install -y $(echo $DEPS | sed -r 's/[a-z0-9_\-]+/&:i386/g')
           echo "PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig" >> $GITHUB_ENV
       - name: Install 64bit dependencies
-        if: ${{ matrix.bits != '' }}
+        if: ${{ matrix.bits == '' }}
         run: |
           sudo apt-get install -y $DEPS
       - name: Install Android dependencies
@@ -116,3 +116,17 @@ jobs:
         run: ./waf configure ${{ matrix.bits }} ${{ matrix.flags }} ${{ env.WAF_FLAGS }}
       - name: Build ${{ matrix.os }}
         run: ./waf install
+
+    - name: 'Upload build'
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows${{matrix.bits}}${{matrix.flags}}
+        path: |
+            build_hl2
+            !build_hl2/**/*.pdb
+    - name: 'Upload debug symbols'
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows${{matrix.bits}}${{matrix.flags}}
+        path: |
+            build_hl2/**/*.pdb

@@ -22,7 +22,7 @@ jobs:
       - name: Install common dependencies
         run: sudo apt-get update && sudo apt-get install -y g++-multilib gcc-multilib
       - name: Install 32bit dependencies
-        if: ${{ matrix.bits == '' && !matrix.android }}
+        if: ${{ matrix.bits != '' && !matrix.android }}
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update
@@ -30,7 +30,7 @@ jobs:
           sudo aptitude install -y $(echo $DEPS | sed -r 's/[a-z0-9_\-]+/&:i386/g')
           echo "PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig" >> $GITHUB_ENV
       - name: Install 64bit dependencies
-        if: ${{ matrix.bits != '' }}
+        if: ${{ matrix.bits == '' }}
         run: |
           sudo apt-get install -y $DEPS
 
