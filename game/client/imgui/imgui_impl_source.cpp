@@ -159,6 +159,23 @@ void ImGui_ImplSource_RenderDrawData( ImDrawData *draw_data )
 	ctx->PopMatrix();
 }
 
+static const char* ImGui_ImplSource_GetClipboardText(ImGuiContext* ctx)
+{
+	auto &g = *static_cast<ImGuiContext *>( ctx );
+	g.ClipboardHandlerData.clear();
+	auto len = vgui::system()->GetClipboardTextCount();
+	if ( !len )
+		return nullptr;
+	g.ClipboardHandlerData.resize( len );
+	vgui::system()->GetClipboardText( 0, g.ClipboardHandlerData.Data, g.ClipboardHandlerData.Size );
+	return g.ClipboardHandlerData.Data;
+}
+
+static void ImGui_ImplSource_SetClipboardText(ImGuiContext*, const char* text)
+{
+	vgui::system()->SetClipboardText( text, V_strlen( text ) );
+}
+
 bool ImGui_ImplSource_Init()
 {
 	// Setup backend capabilities flags
@@ -167,22 +184,8 @@ bool ImGui_ImplSource_Init()
 	io.BackendPlatformName = "source";
 	io.BackendRendererName = "imgui_impl_source";
 	io.BackendFlags = ImGuiBackendFlags_None;
-	platform_io.Platform_SetClipboardTextFn = []( void *, const char *c )
-	{
-		vgui::system()->SetClipboardText( c, V_strlen( c ) );
-	};
-	platform_io.Platform_GetClipboardTextFn = []( void *ctx ) -> const char *
-	{
-		auto &g = *static_cast<ImGuiContext *>( ctx );
-		g.ClipboardHandlerData.clear();
-		auto len = vgui::system()->GetClipboardTextCount();
-		if ( !len )
-			return nullptr;
-		g.ClipboardHandlerData.resize( len );
-		vgui::system()->GetClipboardText( 0, g.ClipboardHandlerData.Data, g.ClipboardHandlerData.Size );
-		return g.ClipboardHandlerData.Data;
-	};
-
+	platform_io.Platform_SetClipboardTextFn = ImGui_ImplSource_SetClipboardText;
+	platform_io.Platform_GetClipboardTextFn = ImGui_ImplSource_GetClipboardText;
 	ImGui_ImplSource_CreateDeviceObjects();
 	return true;
 }

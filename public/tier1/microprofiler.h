@@ -30,38 +30,10 @@ PLATFORM_INTERFACE int64 GetHardwareClockReliably();
 #include <x86intrin.h>
 #endif
 
-#if (defined(_LINUX) || defined( OSX )) && !defined(__e2k__)
 inline unsigned long long GetTimebaseRegister( void )
 {
-#ifdef PLATFORM_64BITS
-    unsigned long long Low, High;
-    __asm__ __volatile__ ( "rdtsc" : "=a" (Low), "=d" (High) );
-    return ( High << 32 ) | ( Low & 0xffffffff );
-#else
-    unsigned long long Val;
-    __asm__ __volatile__ ( "rdtsc" : "=A" (Val) );
-    return Val;
-#endif
+	return Plat_Rdtsc();
 }
-
-#else
-// Warning: THere's a hardware bug with 64-bit MFTB on PS3 (not sure about X360): sometimes it returns incorrect results (when low word overflows, the high word doesn't increment for some time)
-inline int64 GetTimebaseRegister()
-{
-#if defined( _X360 )
-	return __mftb32(); // X360: ~64 CPU ticks resolution
-#elif defined( _PS3 )
-	// The timebase frequency on PS/3 is 79.8 MHz, see sys_time_get_timebase_frequency()
-	// this works out to 40.10025 clock ticks per timebase tick
-	return __mftb();
-#elif defined( OSX )
-	return GetTimebaseRegister();
-#else
-	return __rdtsc();
-#endif
-}
-#endif
-
 
 
 #if ENABLE_MICRO_PROFILER > 0
