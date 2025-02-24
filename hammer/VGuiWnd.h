@@ -6,7 +6,7 @@
 namespace vgui
 {
 	class EditablePanel;
-	typedef unsigned long HCursor;
+	typedef unsigned int HCursor;
 }
 
 class CVGuiWnd 

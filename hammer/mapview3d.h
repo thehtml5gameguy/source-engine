@@ -18,7 +18,7 @@
 
 namespace vgui
 {
-	typedef unsigned long HCursor;
+	typedef unsigned int HCursor;
 }
 
 
