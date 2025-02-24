@@ -3,6 +3,18 @@
  Discord: [![Discord Server](https://img.shields.io/discord/672055862608658432.svg)](https://discord.gg/hZRB7WMgGw)
  
 
+Allows you to run the new source sdk on nillerusr's source-engine.
+You need to copy or simlink these things from the original sdk:
+- The `libsteam_api.so` blob from Source SDK Base 2013 Multiplayer
+- The `hl2` directory from Source SDK Base 2013 Multiplayer, hl2 from hl2 will not work.
+
+You also need to rename/symlink a few files:
+- `libGameUI.so` to `GameUI.so`
+- `libreplay.so` to `replay.so`
+- `libServerBrowser.so` to `ServerBrowser.so`
+
+Then edit the gameinfo in your mod_tf directory to use `all_source_engine_paths` instead of `appid_*`.
+
 Information from [wikipedia](https://wikipedia.org/wiki/Source_(game_engine)):
 
 Source is a 3D game engine developed by Valve.
