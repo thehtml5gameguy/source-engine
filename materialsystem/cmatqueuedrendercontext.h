@@ -410,7 +410,7 @@ public:
 	}
 
 	virtual void							FogRadial( bool bRadial ) {};
-	virtual bool							GetFogRadial() {};
+	virtual bool							GetFogRadial() { return false; };
 
 	virtual void							AsyncMap( ITextureInternal* pTexToMap, IAsyncTextureOperationReceiver* pRecipient, void* pExtraArgs ) OVERRIDE
 	{

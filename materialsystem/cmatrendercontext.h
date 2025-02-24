@@ -538,7 +538,7 @@ public:
 
 	virtual void							AsyncCreateTextureFromRenderTarget( ITexture* pSrcRt, const char* pDstName, ImageFormat dstFmt, bool bGenMips, int nAdditionalCreationFlags, IAsyncTextureOperationReceiver* pRecipient, void* pExtraArgs );
 	virtual void							FogRadial( bool bRadial ) {};
-	virtual bool							GetFogRadial() {};
+	virtual bool							GetFogRadial() { return false; };
 
 	virtual void							AsyncMap( ITextureInternal* pTexToMap, IAsyncTextureOperationReceiver* pRecipient, void* pExtraArgs ) OVERRIDE;
 	virtual void							AsyncUnmap( ITextureInternal* pTexToUnmap ) OVERRIDE;
