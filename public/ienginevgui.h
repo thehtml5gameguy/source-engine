@@ -15,13 +15,14 @@
 
 #include "interface.h"
 #include "vgui/VGUI.h"
-#include "eiface.h"
 
 // Forward declarations.
 namespace vgui
 {
 	class Panel;
 };
+
+struct WorkshopMapDesc_t;
 
 enum VGuiPanel_t
 {

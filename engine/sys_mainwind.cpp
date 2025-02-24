@@ -3,6 +3,18 @@
 // Purpose: 
 //
 //===========================================================================//
+#if defined( USE_SDL )
+#undef PROTECTED_THINGS_ENABLE
+#include "SDL.h"
+#include "SDL_syswm.h"
+
+#if defined( OSX )
+#define DONT_DEFINE_BOOL
+#include <objc/message.h>
+#endif
+
+#endif
+
 #if defined( WIN32 ) && !defined( _X360 ) && !defined( DX_TO_GL_ABSTRACTION )
 #include "winlite.h"
 #include "xbox/xboxstubs.h"
@@ -61,18 +73,6 @@
 
 #if defined( LINUX )
   #include "snd_dev_sdl.h"
-#endif
-
-#if defined( USE_SDL )
-#undef PROTECTED_THINGS_ENABLE
-#include "SDL.h"
-#include "SDL_syswm.h"
-
-#if defined( OSX )
-#define DONT_DEFINE_BOOL
-#include <objc/message.h>
-#endif
-
 #endif
 
 
@@ -1752,4 +1752,3 @@ void CGame::SetActiveApp( bool active )
 {
 	m_bActiveApp = active;
 }
-

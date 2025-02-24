@@ -69,7 +69,7 @@ def build(bld):
 			'qsort_s.cpp',
 		]
 
-	if bld.env.DEST_OS != 'win32' and bld.env.DEST_OS != 'darwin':
+	if bld.env.DEST_OS == 'linux':
 		source += ['pathmatch.cpp']
 
 	includes = [
