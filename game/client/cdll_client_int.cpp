@@ -730,6 +730,11 @@ public:
 	void PrecacheMaterial( const char *pMaterialName );
 
 	virtual bool IsConnectedUserInfoChangeAllowed( IConVar *pCvar );
+
+	virtual bool BHaveChatSuspensionInCurrentMatch();
+
+	virtual void DisplayVoiceUnavailableMessage();
+
 	virtual void IN_TouchEvent( int type, int fingerId, int x, int y );
 
 private:
@@ -2616,6 +2621,31 @@ bool CHLClient::DisconnectAttempt( void )
 bool CHLClient::IsConnectedUserInfoChangeAllowed( IConVar *pCvar )
 {
 	return GameRules() ? GameRules()->IsConnectedUserInfoChangeAllowed( NULL ) : true;
+}
+
+bool CHLClient::BHaveChatSuspensionInCurrentMatch()
+{
+#if defined( TF_CLIENT_DLL )
+	if ( GTFGCClientSystem() )
+	{
+		return GTFGCClientSystem()->BHaveChatSuspensionInCurrentMatch();
+	}
+#endif // TF_CLIENT_DLL 
+
+	return false;
+}
+
+void CHLClient::DisplayVoiceUnavailableMessage()
+{
+#if defined( TF_CLIENT_DLL )
+	CBaseHudChat *pHUDChat = ( CBaseHudChat * ) GET_HUDELEMENT( CHudChat );
+	if ( pHUDChat )
+	{
+		char szLocalized[100];
+		g_pVGuiLocalize->ConvertUnicodeToANSI( g_pVGuiLocalize->Find( "#TF_Voice_Unavailable" ), szLocalized, sizeof( szLocalized ) );
+		pHUDChat->ChatPrintf( 0, CHAT_FILTER_NONE, "%s ", szLocalized );
+	}
+#endif // TF_CLIENT_DLL 
 }
 
 #ifndef NO_STEAM

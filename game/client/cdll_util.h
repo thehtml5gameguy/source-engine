@@ -37,7 +37,7 @@ typedef CGameTrace trace_t;
 
 namespace vgui
 {
-	typedef unsigned long HFont;
+	typedef uint32 HFont;
 };
 
 

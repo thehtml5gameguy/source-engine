@@ -20,7 +20,7 @@ class CHudViewport;
 
 namespace vgui
 {
-	typedef unsigned long HScheme;
+	typedef uint32 HScheme;
 }
 
 
