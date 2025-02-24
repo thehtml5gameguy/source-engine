@@ -405,8 +405,8 @@ def check_deps(conf):
 					conf.check_cfg(package='openal', uselib_store='OPENAL', args=['--cflags', '--libs'])
 				conf.check_cfg(package='libjpeg', uselib_store='JPEG', args=['--cflags', '--libs'])
 				conf.check_cfg(package='libpng', uselib_store='PNG', args=['--cflags', '--libs'])
-				conf.check_cfg(package='libcurl', uselib_store='CURL', args=['--cflags', '--libs'])
 			conf.check_cfg(package='zlib', uselib_store='ZLIB', args=['--cflags', '--libs'])
+			conf.check_cfg(package='libcurl', uselib_store='CURL', args=['--cflags', '--libs'])
 
 			if conf.options.OPUS:
 				conf.check_cfg(package='opus', uselib_store='OPUS', args=['--cflags', '--libs'])

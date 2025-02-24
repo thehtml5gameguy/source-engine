@@ -1224,6 +1224,11 @@ public:
 	virtual void TexLodBias( float bias ) {}
 
 	virtual void CopyTextureToTexture( ShaderAPITextureHandle_t srcTex, ShaderAPITextureHandle_t dstTex ) {}
+
+	virtual int VertexFormatSize( VertexFormat_t vertexFormat ) const { return 0; };
+
+	virtual void SceneFogRadial( bool bRadial ) {};
+	virtual bool GetSceneFogRadial() { return false; };
 	
 	void PrintfVA( char *fmt, va_list vargs ) {}
 	void Printf( const char *fmt, ... ) {}
