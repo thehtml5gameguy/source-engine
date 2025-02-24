@@ -2261,6 +2261,16 @@ public:
 	{
 
 	}
+
+	virtual void FogRadial( bool bRadial )
+	{
+
+	}
+
+	virtual bool GetFogRadial()
+	{
+		return false;
+	}
 	
 	virtual ITexture*			CreateNamedTextureFromBitsEx( const char* pName, const char *pTextureGroupName, int w, int h, int mips, ImageFormat fmt, int srcBufferSize, byte* srcBits, int nFlags )
 	{
@@ -2277,6 +2287,10 @@ public:
 		return false;	
 	}
 
+	virtual RenderBackend_t GetRenderBackend() const
+	{
+		return RENDER_BACKEND_UNKNOWN;
+	}
 };
 
 

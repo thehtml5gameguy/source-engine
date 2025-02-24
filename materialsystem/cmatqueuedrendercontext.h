@@ -409,6 +409,9 @@ public:
 		m_queue.QueueCall( m_pHardwareContext, &IMatRenderContext::AsyncCreateTextureFromRenderTarget, pSrcRt, pDstName, dstFmt, bGenMips, nAdditionalCreationFlags, pRecipient, pExtraArgs );
 	}
 
+	virtual void							FogRadial( bool bRadial ) {};
+	virtual bool							GetFogRadial() {};
+
 	virtual void							AsyncMap( ITextureInternal* pTexToMap, IAsyncTextureOperationReceiver* pRecipient, void* pExtraArgs ) OVERRIDE
 	{
 		OnAsyncMap( pTexToMap, pRecipient, pExtraArgs );

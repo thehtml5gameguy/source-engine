@@ -563,7 +563,7 @@ CServerGameDLL g_ServerGameDLL;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CServerGameDLL, IServerGameDLL, INTERFACEVERSION_SERVERGAMEDLL, g_ServerGameDLL);
 
 // When bumping the version to this interface, check that our assumption is still valid and expose the older version in the same way
-COMPILE_TIME_ASSERT( INTERFACEVERSION_SERVERGAMEDLL_INT == 10 );
+COMPILE_TIME_ASSERT( INTERFACEVERSION_SERVERGAMEDLL_INT == 12 );
 
 bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory, 
 		CreateInterfaceFn physicsFactory, CreateInterfaceFn fileSystemFactory, 
@@ -1973,6 +1973,16 @@ bool CServerGameDLL::IsManualMapChangeOkay( const char **pszReason )
 */
 	return true;
 }
+
+//-----------------------------------------------------------------------------
+bool CServerGameDLL::GetWorkshopMap( uint32 uIndex, WorkshopMapDesc_t *pDesc )
+{
+#ifdef TF_DLL
+	return TFMapsWorkshop()->GetWorkshopMapDesc( uIndex, pDesc );
+#endif // TF_DLL
+	return false;
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Called during a transition, to build a map adjacency list

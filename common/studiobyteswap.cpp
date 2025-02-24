@@ -2985,11 +2985,7 @@ BEGIN_BYTESWAP_DATADESC( mstudiomesh_t )
 END_BYTESWAP_DATADESC()
 
 BEGIN_BYTESWAP_DATADESC( mstudio_meshvertexdata_t )
-#ifdef PLATFORM_64BITS
-	DEFINE_FIELD( index_ptr_modelvertexdata, FIELD_INTEGER ),	// mstudio_modelvertexdata_t*
-#else
 	DEFINE_FIELD( modelvertexdata, FIELD_INTEGER ),	// mstudio_modelvertexdata_t*
-#endif
 	DEFINE_ARRAY( numLODVertexes, FIELD_INTEGER, MAX_NUM_LODS ),
 END_BYTESWAP_DATADESC()
 

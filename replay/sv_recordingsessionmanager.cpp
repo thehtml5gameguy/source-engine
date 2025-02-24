@@ -13,6 +13,7 @@
 #include "iserver.h"
 #include "sv_filepublish.h"
 #include <time.h>
+#include "vcrmode.h"
 #include "vprof.h"
 #include "sv_fileservercleanup.h"
 #include "sv_sessionrecorder.h"

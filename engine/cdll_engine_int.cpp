@@ -563,6 +563,7 @@ public:
 	virtual void	DisconnectInternal();
 
 	virtual int		GetInstancesRunningCount( );
+	virtual void	SetRichPresenceConnect( const char *pszOverride );
 
 	virtual float	GetPausedExpireTime( void ) OVERRIDE;
 
@@ -2067,6 +2068,14 @@ void CEngineClient::FlashWindow()
 int CEngineClient::GetInstancesRunningCount( )
 {
 	return CheckOtherInstancesRunning( );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEngineClient::SetRichPresenceConnect( const char* )
+{
+	// TODO: Implement
 }
 
 //-----------------------------------------------------------------------------

@@ -302,6 +302,7 @@ public:
 	virtual void ActivateGameUI();
 	virtual bool HideGameUI();
 	virtual bool IsGameUIVisible();
+	virtual bool GetWorkshopMap( uint32 uIndex, WorkshopMapDesc_t *pDesc );
 
 	// console
 	virtual void ShowConsole();
@@ -802,6 +803,16 @@ void CEngineVGui::Init()
 	szFileName[ sizeof( szFileName ) - 1 ] = '\0';
 	g_pVGuiLocalize->AddFile( szFileName );
 
+	KeyValues *modinfo = new KeyValues("ModInfo");
+	if ( modinfo->LoadFromFile( g_pFileSystem, "gameinfo.txt" ) )
+	{
+		const char * additionLocalizationName = modinfo->GetString( "AdditionalLocalization" );
+		Q_snprintf( szFileName, sizeof( szFileName ) - 1, "resource/%s_%%language%%.txt", additionLocalizationName );
+		szFileName[ sizeof( szFileName ) - 1 ] = '\0';
+		g_pVGuiLocalize->AddFile( szFileName );
+	}
+	modinfo->deleteThis();
+
 	// setup console
 	if ( staticGameConsole )
 	{
@@ -1176,6 +1187,15 @@ void CEngineVGui::ClearConsole()
 bool CEngineVGui::IsGameUIVisible() 
 {
 	return staticGameUIPanel && staticGameUIPanel->IsVisible();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+bool CEngineVGui::GetWorkshopMap( uint32 uIndex, WorkshopMapDesc_t *pDesc )
+{
+	// TODO
+	return false;
 }
 
 

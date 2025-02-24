@@ -88,6 +88,7 @@ public:
 	virtual void ActivateGameUI() = 0;
 	virtual bool HideGameUI() = 0;
 	virtual bool IsGameUIVisible() = 0;
+	virtual bool GetWorkshopMap( uint32 uIndex, WorkshopMapDesc_t *pDesc ) = 0;
 
 	// console
 	virtual void ShowConsole() = 0;

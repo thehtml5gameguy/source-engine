@@ -376,12 +376,10 @@ static ConVar host_ShowIPCCallCount( "host_ShowIPCCallCount", "0", 0, "Print # o
 #if defined( RAD_TELEMETRY_ENABLED )
 static void OnChangeTelemetryPause ( IConVar *var, const char *pOldValue, float flOldValue )
 {
-	tmPause( TELEMETRY_LEVEL0, 1 );
 }
 
 static void OnChangeTelemetryResume ( IConVar *var, const char *pOldValue, float flOldValue )
 {
-	tmPause( TELEMETRY_LEVEL0, 0 );
 }
 
 static void OnChangeTelemetryLevel ( IConVar *var, const char *pOldValue, float flOldValue )
@@ -1287,7 +1285,7 @@ void Host_WriteConfiguration( const char *filename, bool bAllVars )
 
 		if ( pRemoteStorage )
 		{
-			int32 availableBytes, totalBytes = 0;
+			uint64 availableBytes, totalBytes = 0;
 			if ( pRemoteStorage->GetQuota( &totalBytes, &availableBytes ) )
 			{
 				if ( totalBytes > 0 )

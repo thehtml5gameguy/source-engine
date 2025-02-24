@@ -649,6 +649,37 @@ byte *g_pBaseMainStack = InitMainThread();
 byte *g_pLimitMainStack = InitMainThread() - STACK_SIZE_360;
 #endif
 
+void ThreadSleep(unsigned nMilliseconds)
+{
+	if( nMilliseconds == 0 )
+	{
+		ThreadPause();
+		return;
+        }
+
+#ifdef _WIN32
+
+#ifdef _WIN32_PC
+        static bool bInitialized = false;
+        if ( !bInitialized )
+        {
+                bInitialized = true;
+                // Set the timer resolution to 1 ms (default is 10.0, 15.6, 2.5, 1.0 or
+                // some other value depending on hardware and software) so that we can
+                // use Sleep( 1 ) to avoid wasting CPU time without missing our frame
+                // rate.
+                timeBeginPeriod( 1 );
+        }
+#endif
+	Sleep( nMilliseconds );
+#elif PS3
+	sys_timer_usleep( nMilliseconds * 1000 );
+#elif defined(POSIX)
+        usleep( nMilliseconds * 1000 );
+#endif
+}
+
+
 //-----------------------------------------------------------------------------
 bool ThreadJoin( ThreadHandle_t hThread, unsigned timeout )
 {
@@ -1628,10 +1659,6 @@ bool CThreadFullMutex::Release()
 //-----------------------------------------------------------------------------
 
 #if defined( WIN32 ) || defined( _PS3 ) || defined( _OSX ) || defined (_LINUX) || defined(PLATFORM_BSD)
-#if !defined(_PS3)
-namespace GenericThreadLocals
-{
-#endif
 CThreadLocalBase::CThreadLocalBase()
 {
 #if defined(_WIN32) || defined(_PS3)
@@ -1687,9 +1714,6 @@ void CThreadLocalBase::Set( void *value )
 		AssertMsg( 0, "Bad thread local" );
 #endif
 }
-#if !defined(_PS3)
-} // namespace GenericThreadLocals
-#endif
 #endif // ( defined(WIN32) ) 
 //-----------------------------------------------------------------------------
 
@@ -2243,7 +2267,7 @@ void TrapMutexTimings( uint32 probableBlocker, uint32 thisThread, volatile CThre
 
 #define THREAD_SPIN (8*1024)
 
-void CThreadFastMutex::Lock( const uint32 threadId, unsigned nSpinSleepTime ) volatile 
+void CThreadFastMutex::Lock( const ThreadId_t threadId, unsigned nSpinSleepTime ) volatile 
 {
 #ifdef THREAD_FAST_MUTEX_TIMINGS
 	CAverageCycleCounter sleepTimer;
@@ -2506,7 +2530,6 @@ void CThreadSpinRWLock::SpinLockForRead()
 }
 
 #else
-/* (commented out to reduce distraction in colorized editor, remove entirely when new implementation settles)
 void CThreadSpinRWLock::SpinLockForWrite( const uint32 threadId )
 {
 	int i;
@@ -2624,6 +2647,7 @@ void CThreadSpinRWLock::UnlockRead()
 	LockInfo_t oldValue;
 	LockInfo_t newValue;
 	
+	/*
 	if( IsX360() )
 	{
 		// this is the code equivalent to original code (see below) that doesn't cause LHS on Xbox360
@@ -2632,6 +2656,7 @@ void CThreadSpinRWLock::UnlockRead()
 		newValue.m_i64 = oldValue.m_i64 - 1; // NOTE: when we have -1 (or 0xFFFFFFFF) readers, this will result in non-equivalent code
 	}
 	else
+	*/
 	{
 		// this is the original code that worked here for a while
 		oldValue.m_nReaders = m_lockInfo.m_nReaders;
@@ -2698,7 +2723,6 @@ void CThreadSpinRWLock::UnlockWrite()
 	ThreadInterlockedExchange64(  (int64 *)&m_lockInfo, *((int64 *)&newValue) );
 	m_nWriters--;
 }
-*/
 #endif
 
 #if defined( _PS3 )
@@ -2734,7 +2758,7 @@ CWorkerThread::CWorkerThread()
 
 //---------------------------------------------------------
 
-int CWorkerThread::CallWorker(unsigned dw, unsigned timeout, bool fBoostWorkerPriorityToMaster)
+int CWorkerThread::CallWorker(unsigned dw, unsigned timeout, bool fBoostWorkerPriorityToMaster, CFunctor *pParamFunctor)
 {
 	return Call(dw, timeout, fBoostWorkerPriorityToMaster);
 }

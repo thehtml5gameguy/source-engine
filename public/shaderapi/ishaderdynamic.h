@@ -36,8 +36,8 @@ struct LightState_t
 {
 	int  m_nNumLights;
 	bool m_bAmbientLight;
-	bool m_bStaticLightTexel;
 	bool m_bStaticLightVertex;
+	bool m_bStaticLightTexel;
 	inline int HasDynamicLight() { return (m_bAmbientLight || (m_nNumLights > 0)) ? 1 : 0; }
 };
 
@@ -337,6 +337,8 @@ public:
 	virtual void SetPSNearAndFarZ( int pshReg ) = 0;
 
 	virtual void SetDepthFeatheringPixelShaderConstant( int iConstant, float fDepthBlendScale ) = 0;
+
+	virtual int GetPixelFogCombo1( bool bSupportsRadial ) = 0;
 };
 // end class IShaderDynamicAPI
 

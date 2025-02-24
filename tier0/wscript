@@ -64,6 +64,7 @@ def build(bld):
 			]
 	else:
 		source += [
+			'../tier1/pathmatch.cpp',
 			'cpu_posix.cpp',
 			'platform_posix.cpp',
 			'pme_posix.cpp',

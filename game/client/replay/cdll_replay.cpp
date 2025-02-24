@@ -1,6 +1,6 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #include "cbase.h"
-
+#undef REPLAY_ENABLED
 #if defined( REPLAY_ENABLED )
 
 #include "replay/cdll_replay.h"

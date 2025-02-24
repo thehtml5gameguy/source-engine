@@ -151,6 +151,9 @@ public:
 
 	virtual void AddTickSignal(VPANEL panel, int intervalMilliseconds = 0);
 	virtual void AddTickSignalToHead( VPANEL panel, int intervalMilliseconds = 0 ) OVERRIDE;
+	virtual IVEngineClient* GetVGUIEngine() OVERRIDE;
+	virtual void InvalidateMdlCache() OVERRIDE;
+	virtual uint32 GetMdlCacheSerial() OVERRIDE;
 	virtual void RemoveTickSignal(VPANEL panel );
 
 
@@ -727,6 +730,20 @@ void CVGui::AddTickSignalToHead(VPANEL panel, int intervalMilliseconds /*=0*/ )
 	}
 }
 
+IVEngineClient* CVGui::GetVGUIEngine()
+{
+	// TODO: Implement
+	return NULL;
+}
+void CVGui::InvalidateMdlCache()
+{
+	// TODO: Implement
+}
+uint32 CVGui::GetMdlCacheSerial()
+{
+	// TODO: Implement
+	return 0;
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: 

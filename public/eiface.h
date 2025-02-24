@@ -84,6 +84,14 @@ struct bbox_t
 	Vector maxs;
 };
 
+struct WorkshopMapDesc_t
+{
+	char	szMapName[MAX_PATH];
+	char	szOriginalMapName[MAX_PATH];
+	uint32	uTimestamp;
+	bool	bDownloaded;
+};
+
 //-----------------------------------------------------------------------------
 // Purpose: Interface the engine exposes to the game DLL
 //-----------------------------------------------------------------------------
@@ -454,8 +462,10 @@ typedef IVEngineServer IVEngineServer022;
 
 #define INTERFACEVERSION_SERVERGAMEDLL_VERSION_8	"ServerGameDLL008"
 #define INTERFACEVERSION_SERVERGAMEDLL_VERSION_9	"ServerGameDLL009"
-#define INTERFACEVERSION_SERVERGAMEDLL				"ServerGameDLL010"
-#define INTERFACEVERSION_SERVERGAMEDLL_INT			10
+#define INTERFACEVERSION_SERVERGAMEDLL_VERSION_10	"ServerGameDLL010"
+#define INTERFACEVERSION_SERVERGAMEDLL_VERSION_11	"ServerGameDLL011"
+#define INTERFACEVERSION_SERVERGAMEDLL				"ServerGameDLL012"
+#define INTERFACEVERSION_SERVERGAMEDLL_INT			12
 
 class IServerGCLobby;
 
@@ -631,6 +641,11 @@ public:
 
 	// Called to see if the game server is okay with a manual changelevel or map command
 	virtual bool			IsManualMapChangeOkay( const char **pszReason ) = 0;
+
+	// Josh: Allows the engine over all workshop maps and get some information about them.
+	// Used primarily for listmaps code.
+	// Returns true if uIndex was valid, false if invalid.
+	virtual bool			GetWorkshopMap( uint32 uIndex, WorkshopMapDesc_t *pDesc ) = 0;
 };
 
 typedef IServerGameDLL IServerGameDLL008;

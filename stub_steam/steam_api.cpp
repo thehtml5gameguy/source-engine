@@ -114,6 +114,18 @@ S_API void *SteamInternal_CreateInterface() {
 	return NULL;
 }
 
+S_API void *SteamInternal_FindOrCreateGameServerInterface() {
+	return NULL;
+}
+
+S_API void *SteamInternal_FindOrCreateUserInterface() {
+	return NULL;
+}
+
+S_API void *SteamInternal_GameServer_Init() {
+	return NULL;
+}
+
 S_API void *SteamApps() {
 	return NULL;
 }
@@ -182,4 +194,15 @@ S_API void SteamGameServer_RunCallbacks() {
 }
 
 S_API void SteamGameServer_Shutdown() {
+}
+S_API void SteamGameServer_ReleaseCurrentThreadMemory() {
+}
+
+S_API bool SteamGameServer_BSecure()
+{
+	return false;
+}
+S_API unsigned long long SteamGameServer_GetSteamID()
+{
+	return 0;
 }

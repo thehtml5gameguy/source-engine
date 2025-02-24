@@ -414,10 +414,6 @@ void CEngine::Frame( void )
 
 	VPROF_BUDGET( "CEngine::Frame", VPROF_BUDGETGROUP_OTHER_UNACCOUNTED );
 	tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "%s", __FUNCTION__ );
-#ifdef RAD_TELEMETRY_ENABLED
-	TmU64 time0 = tmFastTime();
-#endif
-
 
 	switch( m_nDLLState )
 	{
@@ -449,14 +445,6 @@ void CEngine::Frame( void )
 			break;
 		}
 	}
-
-#ifdef RAD_TELEMETRY_ENABLED
-	float time = ( tmFastTime() - time0 ) * g_Telemetry.flRDTSCToMilliSeconds;
-	if( time > 0.5f )
-	{
-		tmPlot( TELEMETRY_LEVEL0, TMPT_TIME_MS, 0, time, "CEngine::Frame" );
-	}
-#endif
 	} // profile scope
 
 

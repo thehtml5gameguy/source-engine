@@ -4,6 +4,7 @@
 //
 // $NoKeywords: $
 //===========================================================================//
+#undef REPLAY_ENABLED
 #include "cbase.h"
 #include <crtmemdebug.h>
 #include "vgui_int.h"

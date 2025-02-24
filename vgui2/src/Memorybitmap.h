@@ -19,7 +19,7 @@
 namespace vgui
 {
 
-typedef unsigned long HTexture;
+typedef uint32 HTexture;
 
 //-----------------------------------------------------------------------------
 // Purpose: Holds a single image created from a chunk of memory, internal to vgui only

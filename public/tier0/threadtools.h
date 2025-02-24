@@ -8,6 +8,7 @@
 
 #ifndef THREADTOOLS_H
 #define THREADTOOLS_H
+#define OLD_SPINRWLOCK 1
 
 #include <limits.h>
 
@@ -200,6 +201,7 @@ PLATFORM_INTERFACE bool ReleaseThreadHandle( ThreadHandle_t );
 
 //-----------------------------------------------------------------------------
 
+PLATFORM_INTERFACE void ThreadSleep(unsigned duration = 0);
 PLATFORM_INTERFACE ThreadId_t ThreadGetCurrentId();
 PLATFORM_INTERFACE ThreadHandle_t ThreadGetCurrentHandle();
 PLATFORM_INTERFACE int ThreadGetPriority( ThreadHandle_t hThread = NULL );
@@ -251,35 +253,6 @@ inline void ThreadPause()
 #endif
 }
 
-inline void ThreadSleep(unsigned nMilliseconds = 0)
-{
-	if( nMilliseconds == 0 )
-	{
-		ThreadPause();
-		return;
-        }
-
-#ifdef _WIN32
-
-#ifdef _WIN32_PC
-        static bool bInitialized = false;
-        if ( !bInitialized )
-        {
-                bInitialized = true;
-                // Set the timer resolution to 1 ms (default is 10.0, 15.6, 2.5, 1.0 or
-                // some other value depending on hardware and software) so that we can
-                // use Sleep( 1 ) to avoid wasting CPU time without missing our frame
-                // rate.
-                timeBeginPeriod( 1 );
-        }
-#endif
-	Sleep( nMilliseconds );
-#elif PS3
-	sys_timer_usleep( nMilliseconds * 1000 );
-#elif defined(POSIX)
-        usleep( nMilliseconds * 1000 );
-#endif
-}
 
 PLATFORM_INTERFACE bool ThreadJoin( ThreadHandle_t, unsigned timeout = TT_INFINITE );
 
@@ -523,172 +496,155 @@ PLATFORM_INTERFACE void ThreadNotifySyncReleasing(void *p);
 #if defined(WIN32) || defined(OSX) ||  defined( _PS3 ) || ( defined (_LINUX) ) || defined(PLATFORM_BSD)
 #ifndef __AFXTLS_H__ // not compatible with some Windows headers
 
-#if defined(_PS3)
 #define CTHREADLOCALINT CThreadLocalInt<int>
 #define CTHREADLOCALINTEGER( typ ) CThreadLocalInt<typ>
 #define CTHREADLOCALPTR( typ ) CThreadLocalPtr<typ>
 #define CTHREADLOCAL( typ ) CThreadLocal<typ>
 #define GETLOCAL( x ) ( x.Get() )
-#else
-#define CTHREADLOCALINT GenericThreadLocals::CThreadLocalInt<int>
-#define CTHREADLOCALINTEGER( typ ) GenericThreadLocals::CThreadLocalInt<typ>
-#define CTHREADLOCALPTR( typ ) GenericThreadLocals::CThreadLocalPtr<typ>
-#define CTHREADLOCAL( typ ) GenericThreadLocals::CThreadLocal<typ>
-#define GETLOCAL( x ) ( x.Get() )
 
-#endif
+// a (not so efficient) implementation of thread locals for compilers without full support (i.e. visual c).
+// don't use this explicity - instead, use the CTHREADxxx macros above.
 
-#if !defined(_PS3)
-namespace GenericThreadLocals
+class PLATFORM_CLASS CThreadLocalBase
 {
-#endif
-	// a (not so efficient) implementation of thread locals for compilers without full support (i.e. visual c).
-	// don't use this explicity - instead, use the CTHREADxxx macros above.
-
-	class PLATFORM_CLASS CThreadLocalBase
-	{
 public:
-		CThreadLocalBase();
-		~CThreadLocalBase();
+	CThreadLocalBase();
+	~CThreadLocalBase();
 
-		void * Get() const;
-		void   Set(void *);
+	void * Get() const;
+	void   Set(void *);
 
 private:
 #if defined(POSIX)   && !defined( _GAMECONSOLE )
-		pthread_key_t m_index;
+	pthread_key_t m_index;
 #else
-		uint32 m_index;		
+	uint32 m_index;		
 #endif
-	};
+};
 
-	//---------------------------------------------------------
+//---------------------------------------------------------
 
-	template <class T>
-	class CThreadLocal : public CThreadLocalBase
+template <class T>
+class CThreadLocal : public CThreadLocalBase
+{
+public:
+	CThreadLocal()
 	{
-	public:
-		CThreadLocal()
-		{
 #ifdef PLATFORM_64BITS
-			COMPILE_TIME_ASSERT( sizeof(T) <= sizeof(void *) );
+		COMPILE_TIME_ASSERT( sizeof(T) <= sizeof(void *) );
 #else
-			COMPILE_TIME_ASSERT( sizeof(T) == sizeof(void *) );
+		COMPILE_TIME_ASSERT( sizeof(T) == sizeof(void *) );
 #endif
-		}
+	}
 
-		void operator=( T i ) { Set( i ); }
+	void operator=( T i ) { Set( i ); }
 
-		T Get() const
-		{
-#ifdef PLATFORM_64BITS
-			void *pData = CThreadLocalBase::Get();
-			return *reinterpret_cast<T*>( &pData );
-#else
-	#ifdef COMPILER_MSVC
-		#pragma warning ( disable : 4311 )
-	#endif
-			return reinterpret_cast<T>( CThreadLocalBase::Get() );
-	#ifdef COMPILER_MSVC
-		#pragma warning ( default : 4311 )
-	#endif
-#endif
-		}
-
-		void Set(T val)
-		{
-#ifdef PLATFORM_64BITS
-			void* pData = 0;
-			*reinterpret_cast<T*>( &pData ) = val;
-			CThreadLocalBase::Set( pData );
-#else
-	#ifdef COMPILER_MSVC
-		#pragma warning ( disable : 4312 )
-	#endif
-			CThreadLocalBase::Set( reinterpret_cast<void *>(val) );
-	#ifdef COMPILER_MSVC
-		#pragma warning ( default : 4312 )
-	#endif
-#endif
-		}
-	};
-
-
-	//---------------------------------------------------------
-
-	template <class T = int32>
-	class CThreadLocalInt : public CThreadLocal<T>
+	T Get() const
 	{
-	public:
-		operator const T() const { return this->Get(); }
-		int	operator=( T i ) { this->Set( i ); return i; }
-
-		T operator++()					{ T i = this->Get(); this->Set( ++i ); return i; }
-		T operator++(int)				{ T i = this->Get(); this->Set( i + 1 ); return i; }
-
-		T operator--()					{ T i = this->Get(); this->Set( --i ); return i; }
-		T operator--(int)				{ T i = this->Get(); this->Set( i - 1 ); return i; }
-
-		inline CThreadLocalInt(  ) { }
-		inline CThreadLocalInt( const T &initialvalue )
-		{
-			this->Set( initialvalue );
-		}
-	};
-
-
-	//---------------------------------------------------------
-
-	template <class T>
-	class CThreadLocalPtr : private CThreadLocalBase
-	{
-	public:
-		CThreadLocalPtr() = default;
-
-		operator const void *() const          					{ return (const T *)Get(); }
-		operator void *()                      					{ return (T *)Get(); }
-
-		operator const T *() const							    { return (const T *)Get(); }
-		operator const T *()          							{ return (const T *)Get(); }
-		operator T *()											{ return (T *)Get(); }
-
-		T *			operator=( T *p )							{ Set( p ); return p; }
-
-		bool        operator !() const							{ return (!Get()); }
-		bool        operator!=( int i ) const					{ AssertMsg( i == 0, "Only NULL allowed on integer compare" ); return (Get() != NULL); }
-		bool        operator==( int i ) const					{ AssertMsg( i == 0, "Only NULL allowed on integer compare" ); return (Get() == NULL); }
-		bool		operator==( const void *p ) const			{ return (Get() == p); }
-		bool		operator!=( const void *p ) const			{ return (Get() != p); }
-		bool		operator==( const T *p ) const				{ return operator==((const void*)p); }
-		bool		operator!=( const T *p ) const				{ return operator!=((const void*)p); }
-
-		T *  		operator->()								{ return (T *)Get(); }
-		T &  		operator *()								{ return *((T *)Get()); }
-
-		const T *   operator->() const							{ return (const T *)Get(); }
-		const T &   operator *() const							{ return *((const T *)Get()); }
-
-		const T &	operator[]( int i ) const					{ return *((const T *)Get() + i); }
-		T &			operator[]( int i )							{ return *((T *)Get() + i); }
-
-	private:
-		// Disallowed operations
-		CThreadLocalPtr( T *pFrom );
-		CThreadLocalPtr( const CThreadLocalPtr<T> &from );
-		T **operator &();
-		T * const *operator &() const;
-		void operator=( const CThreadLocalPtr<T> &from );
-		bool operator==( const CThreadLocalPtr<T> &p ) const;
-		bool operator!=( const CThreadLocalPtr<T> &p ) const;
-	};
-#if !defined(_PS3)
-}
-using namespace GenericThreadLocals;
+#ifdef PLATFORM_64BITS
+		void *pData = CThreadLocalBase::Get();
+		return *reinterpret_cast<T*>( &pData );
+#else
+#ifdef COMPILER_MSVC
+	#pragma warning ( disable : 4311 )
 #endif
+		return reinterpret_cast<T>( CThreadLocalBase::Get() );
+#ifdef COMPILER_MSVC
+	#pragma warning ( default : 4311 )
+#endif
+#endif
+	}
+
+	void Set(T val)
+	{
+#ifdef PLATFORM_64BITS
+		void* pData = 0;
+		*reinterpret_cast<T*>( &pData ) = val;
+		CThreadLocalBase::Set( pData );
+#else
+#ifdef COMPILER_MSVC
+	#pragma warning ( disable : 4312 )
+#endif
+		CThreadLocalBase::Set( reinterpret_cast<void *>(val) );
+#ifdef COMPILER_MSVC
+	#pragma warning ( default : 4312 )
+#endif
+#endif
+	}
+};
+
+
+//---------------------------------------------------------
+
+template <class T = int32>
+class CThreadLocalInt : public CThreadLocal<T>
+{
+public:
+	operator const T() const { return this->Get(); }
+	int	operator=( T i ) { this->Set( i ); return i; }
+
+	T operator++()					{ T i = this->Get(); this->Set( ++i ); return i; }
+	T operator++(int)				{ T i = this->Get(); this->Set( i + 1 ); return i; }
+
+	T operator--()					{ T i = this->Get(); this->Set( --i ); return i; }
+	T operator--(int)				{ T i = this->Get(); this->Set( i - 1 ); return i; }
+
+	inline CThreadLocalInt(  ) { }
+	inline CThreadLocalInt( const T &initialvalue )
+	{
+		this->Set( initialvalue );
+	}
+};
+
+
+//---------------------------------------------------------
+
+template <class T>
+class CThreadLocalPtr : private CThreadLocalBase
+{
+public:
+	CThreadLocalPtr() = default;
+
+	operator const void *() const          					{ return (const T *)Get(); }
+	operator void *()                      					{ return (T *)Get(); }
+
+	operator const T *() const							    { return (const T *)Get(); }
+	operator const T *()          							{ return (const T *)Get(); }
+	operator T *()											{ return (T *)Get(); }
+
+	T *			operator=( T *p )							{ Set( p ); return p; }
+
+	bool        operator !() const							{ return (!Get()); }
+	bool        operator!=( int i ) const					{ AssertMsg( i == 0, "Only NULL allowed on integer compare" ); return (Get() != NULL); }
+	bool        operator==( int i ) const					{ AssertMsg( i == 0, "Only NULL allowed on integer compare" ); return (Get() == NULL); }
+	bool		operator==( const void *p ) const			{ return (Get() == p); }
+	bool		operator!=( const void *p ) const			{ return (Get() != p); }
+	bool		operator==( const T *p ) const				{ return operator==((const void*)p); }
+	bool		operator!=( const T *p ) const				{ return operator!=((const void*)p); }
+
+	T *  		operator->()								{ return (T *)Get(); }
+	T &  		operator *()								{ return *((T *)Get()); }
+
+	const T *   operator->() const							{ return (const T *)Get(); }
+	const T &   operator *() const							{ return *((const T *)Get()); }
+
+	const T &	operator[]( int i ) const					{ return *((const T *)Get() + i); }
+	T &			operator[]( int i )							{ return *((T *)Get() + i); }
+
+private:
+	// Disallowed operations
+	CThreadLocalPtr( T *pFrom );
+	CThreadLocalPtr( const CThreadLocalPtr<T> &from );
+	T **operator &();
+	T * const *operator &() const;
+	void operator=( const CThreadLocalPtr<T> &from );
+	bool operator==( const CThreadLocalPtr<T> &p ) const;
+	bool operator!=( const CThreadLocalPtr<T> &p ) const;
+};
 
 
 #ifdef _OSX
-PLATFORM_INTERFACE GenericThreadLocals::CThreadLocalInt<int> g_nThreadID;
+PLATFORM_INTERFACE CThreadLocalInt<int> g_nThreadID;
 #else // _OSX
 #ifndef TIER0_DLL_EXPORT
 
@@ -712,6 +668,15 @@ DLL_GLOBAL_IMPORT CTHREADLOCALINT g_nThreadID;
 inline int64 ThreadInterlockedIncrement64(int64 volatile *p)										{ AssertDbg((size_t)p % 8 == 0); return _InterlockedIncrement64((volatile int64*)p); }
 inline int64 ThreadInterlockedDecrement64(int64 volatile *p)										{ AssertDbg((size_t)p % 8 == 0); return _InterlockedDecrement64((volatile int64*)p); }
 #endif
+
+#ifdef PLATFORM_64BITS
+#define ThreadInterlockedExchange_SizeT ThreadInterlockedExchange64
+#define ThreadInterlockedAssignIf_SizeT ThreadInterlockedAssignIf64
+#else
+#define ThreadInterlockedExchange_SizeT ThreadInterlockedExchange
+#define ThreadInterlockedAssignIf_SizeT ThreadInterlockedAssignIf
+#endif
+
 
 //-----------------------------------------------------------------------------
 //
@@ -988,8 +953,8 @@ private:
 #endif
 
 #ifdef THREAD_MUTEX_TRACING_SUPPORTED
-	// Debugging (always herge to allow mixed debug/release builds w/o changing size)
-	uint	m_currentOwnerID;
+	// Debugging (always here to allow mixed debug/release builds w/o changing size)
+	ThreadId_t	m_currentOwnerID;
 	uint16	m_lockCount;
 	bool	m_bTrace;
 #endif
@@ -1017,9 +982,9 @@ public:
 	}
 
 private:
-	FORCEINLINE bool TryLockInline( const uint32 threadId ) volatile
+	FORCEINLINE bool TryLockInline( const ThreadId_t threadId ) volatile
 	{
-		if ( threadId != m_ownerID && !ThreadInterlockedAssignIf( (volatile int32 *)&m_ownerID, (int32)threadId, 0 ) )
+		if ( threadId != m_ownerID && !ThreadInterlockedAssignIf_SizeT( (volatile intp *)&m_ownerID, (ThreadId_t)threadId, 0 ) )
 			return false;
 
 		ThreadMemoryBarrier();
@@ -1027,12 +992,12 @@ private:
 		return true;
 	}
 
-	bool TryLock( const uint32 threadId ) volatile
+	bool TryLock( const ThreadId_t threadId ) volatile
 	{
 		return TryLockInline( threadId );
 	}
 
-	PLATFORM_CLASS void Lock( const uint32 threadId, unsigned nSpinSleepTime ) volatile;
+	PLATFORM_CLASS void Lock( const ThreadId_t threadId, unsigned nSpinSleepTime ) volatile;
 
 public:
 	bool TryLock() volatile
@@ -1088,7 +1053,7 @@ public:
 		if ( !m_depth )
 		{
 			ThreadMemoryBarrier();
-			ThreadInterlockedExchange( &m_ownerID, 0 );
+			ThreadInterlockedExchange_SizeT( (volatile intp*)&m_ownerID, 0 );
 		}
 	}
 
@@ -1100,10 +1065,10 @@ public:
 	bool AssertOwnedByCurrentThread()	{ return true; }
 	void SetTrace( bool )				{}
 
-	uint32 GetOwnerId() const			{ return m_ownerID;	}
+	ThreadId_t GetOwnerId() const			{ return m_ownerID;	}
 	int	GetDepth() const				{ return m_depth; }
 private:
-	volatile uint32 m_ownerID;
+	volatile ThreadId_t m_ownerID;
 	int				m_depth;
 };
 
@@ -1739,7 +1704,6 @@ private:
 
 #else
 
-/* (commented out to reduce distraction in colorized editor, remove entirely when new implementation settles)
 class ALIGN8 PLATFORM_CLASS CThreadSpinRWLock
 {
 public:
@@ -1768,10 +1732,12 @@ private:
 	{
 		struct
 		{
+			// FIXME(johns): ThreadId_t is 64bits in 64bit linux. So we just kinda truncate it to 32bit, but we should
+			//               probably have a hashed/uniquifying way to do that. Right now pthred_self is %fs where the
+			//               low bits are usually the unique ones.
 			uint32	m_writerId;
 			int		m_nReaders;
 		};
-		int64 m_i64;
 	};
 
 	bool AssignIf( const LockInfo_t &newValue, const LockInfo_t &comperand );
@@ -1781,7 +1747,6 @@ private:
 	volatile LockInfo_t m_lockInfo;
 	CInterlockedInt m_nWriters;
 } ALIGN8_POST;
-*/
 #endif
 
 //-----------------------------------------------------------------------------
@@ -1817,7 +1782,7 @@ public:
 	//-----------------------------------------------------
 
 	// Start thread running  - error if already running
-	virtual bool Start( unsigned nBytesStack = 0, ThreadPriorityEnum_t nPriority = TP_PRIORITY_DEFAULT );
+	virtual bool Start( unsigned nBytesStack = 0 );
 
 	// Returns true if thread has been created and hasn't yet exited
 	bool IsAlive();
@@ -1896,7 +1861,7 @@ protected:
 	virtual void OnExit();
 
 	// Allow for custom start waiting
-	virtual bool WaitForCreateComplete( CThreadEvent *pEvent );
+	bool WaitForCreateComplete( CThreadEvent *pEvent );
 	const ThreadId_t GetThreadID() const { return (ThreadId_t)m_threadId; }
 
 #ifdef PLATFORM_WINDOWS
@@ -2010,6 +1975,7 @@ enum WTCallResult_t
 	WTCR_THREAD_GONE	= -3,
 };
 
+class CFunctor;
 class PLATFORM_CLASS CWorkerThread : public CThread
 {
 public:
@@ -2025,7 +1991,7 @@ public:
 	//-----------------------------------------------------
 
 	// Master: Signal the thread, and block for a response
-	int CallWorker( unsigned, unsigned timeout = TT_INFINITE, bool fBoostWorkerPriorityToMaster = true );
+	int CallWorker( unsigned, unsigned timeout = TT_INFINITE, bool fBoostWorkerPriorityToMaster = true, CFunctor *pParamFunctor = NULL );
 
 	// Worker: Signal the thread, and block for a response
 	int CallMaster( unsigned, unsigned timeout = TT_INFINITE );
@@ -2543,13 +2509,12 @@ void CThreadSpinRWLock::UnlockRead()
 }
 
 #else
-/* (commented out to reduce distraction in colorized editor, remove entirely when new implementation settles)
 inline bool CThreadSpinRWLock::AssignIf( const LockInfo_t &newValue, const LockInfo_t &comperand )
 {
 	// Note: using unions guarantees no aliasing bugs. Casting structures through *(int64*)& 
 	//       may create hard-to-catch bugs because when you do that, compiler doesn't know that the newly computed pointer
 	//       is actually aliased with LockInfo_t structure. It's rarely a problem in practice, but when it is, it's a royal pain to debug.
-	return ThreadInterlockedAssignIf64( &m_lockInfo.m_i64, newValue.m_i64, comperand.m_i64 );
+	return ThreadInterlockedAssignIf64( (int64 *)&m_lockInfo, *((int64 *)&newValue), *((int64 *)&comperand) );
 }
 
 FORCEINLINE bool CThreadSpinRWLock::TryLockForWrite( const uint32 threadId )
@@ -2581,7 +2546,7 @@ inline bool CThreadSpinRWLock::TryLockForWrite()
 	return true;
 }
 
-FORCEINLINE bool CThreadSpinRWLock::TryLockForRead()
+inline bool CThreadSpinRWLock::TryLockForRead()
 {
 	if ( m_nWriters != 0 )
 	{
@@ -2591,28 +2556,19 @@ FORCEINLINE bool CThreadSpinRWLock::TryLockForRead()
 	LockInfo_t oldValue;
 	LockInfo_t newValue;
 
-	if( IsX360() || IsPS3() )
-	{
-		// this is the code equivalent to original code (see below) that doesn't cause LHS on Xbox360
-		// WARNING: This code assumes BIG Endian CPU
-		oldValue.m_i64 = uint32( m_lockInfo.m_nReaders );
-		newValue.m_i64 = oldValue.m_i64 + 1; // NOTE: when we have -1 (or 0xFFFFFFFF) readers, this will result in non-equivalent code
-	}
-	else
-	{
-		// this is the original code that worked here for a while
 		oldValue.m_nReaders = m_lockInfo.m_nReaders;
 		oldValue.m_writerId = 0;
 		newValue.m_nReaders = oldValue.m_nReaders + 1;
 		newValue.m_writerId = 0;
-	}
 
-	if ( AssignIf( newValue, oldValue ) )
+	const bool bSuccess = AssignIf( newValue, oldValue );
+#if defined(_X360)
+	if ( bSuccess )
 	{
-		ThreadMemoryBarrier();
-		return true;
+		// X360TBD: Serious perf implications. Not Yet. __sync();
 	}
-	return false;
+#endif
+	return bSuccess;
 }
 
 inline void CThreadSpinRWLock::LockForWrite()
@@ -2627,7 +2583,6 @@ inline void CThreadSpinRWLock::LockForWrite()
 		SpinLockForWrite( threadId );
 	}
 }
-*/
 #endif
 
 // read data from a memory address

@@ -18,6 +18,7 @@
 #define GAMMA 2.2f
 #define TEXGAMMA 2.2f
 
+#include "icommandline.h"
 #include "mathlib/vector.h"
 #include "mathlib/vector4d.h"
 #include "mathlib/vmatrix.h"
@@ -70,7 +71,10 @@ typedef uint64 VertexFormat_t;
 // V081 - 10/25/2016 - Added new Suspend/Resume texture streaming interfaces. Might also have added more calls here due
 //                     to the streaming work that didn't get bumped, but we're not guarding versions on the TF branch
 //                     very judiciously since we need to audit them when merging to SDK branch either way.
-#define MATERIAL_SYSTEM_INTERFACE_VERSION "VMaterialSystem081"
+//
+// misyl: unfrogged this interface to be compatible, added MATERIAL_SYSTEM_INTERFACE_VERSION_OLD for sdk 2013 compat.
+#define MATERIAL_SYSTEM_INTERFACE_VERSION "VMaterialSystem082"
+#define MATERIAL_SYSTEM_INTERFACE_VERSION_OLD "VMaterialSystem080"
 
 #ifdef POSIX
 #define ABSOLUTE_MINIMUM_DXLEVEL 90
@@ -567,6 +571,68 @@ class CShadowMgr;
 
 DECLARE_POINTER_HANDLE( MaterialLock_t );
 
+enum RenderBackend_t
+{
+	RENDER_BACKEND_UNKNOWN,
+	RENDER_BACKEND_D3D9,
+	RENDER_BACKEND_TOGL,
+	RENDER_BACKEND_VULKAN,
+	RENDER_BACKEND_NULL,
+};
+
+FORCEINLINE const char* GetRenderBackendName( RenderBackend_t eBackend )
+{
+	switch ( eBackend )
+	{
+		default:
+#ifdef ALLOW_NOSHADERAPI
+		case RENDER_BACKEND_UNKNOWN: return "Unknown";
+		case RENDER_BACKEND_NULL:    return "Null";
+#endif
+		case RENDER_BACKEND_D3D9:    return "Direct3D 9";
+		case RENDER_BACKEND_TOGL:    return "OpenGL";
+		case RENDER_BACKEND_VULKAN:  return "Vulkan";
+	}
+}
+
+FORCEINLINE const char* GetRenderBackendShaderAPI( RenderBackend_t eBackend )
+{
+	switch ( eBackend )
+	{
+		default:
+#ifdef ALLOW_NOSHADERAPI
+		case RENDER_BACKEND_UNKNOWN:
+		case RENDER_BACKEND_NULL:   return "shaderapiempty";
+#endif
+		case RENDER_BACKEND_D3D9:   return "shaderapidx9";
+		case RENDER_BACKEND_TOGL:   return "shaderapidx9";
+		case RENDER_BACKEND_VULKAN: return "shaderapivk";
+	}
+}
+
+FORCEINLINE RenderBackend_t DetermineRenderBackend()
+{
+#ifdef ALLOW_NOSHADERAPI
+	if ( CommandLine()->FindParm( "-noshaderapi" ) )
+		return RENDER_BACKEND_NULL;
+#endif
+
+	if ( CommandLine()->FindParm( "-vulkan" ) )
+		return RENDER_BACKEND_VULKAN;
+
+	if ( CommandLine()->FindParm( "-gl" ) )
+		return RENDER_BACKEND_TOGL;
+
+	if ( CommandLine()->FindParm( "-dx9" ) )
+		return RENDER_BACKEND_D3D9;
+
+#if defined( PLATFORM_WINDOWS_PC )
+	return RENDER_BACKEND_D3D9;
+#else
+	return RENDER_BACKEND_VULKAN;
+#endif
+}
+
 //-----------------------------------------------------------------------------
 // 
 //-----------------------------------------------------------------------------
@@ -805,11 +871,6 @@ public:
 	//---------------------------------------------------------
 	// Material and texture management
 	//---------------------------------------------------------
-
-	// Stop attempting to stream in textures in response to usage.  Useful for phases such as loading or other explicit
-	// operations that shouldn't take usage of textures as a signal to stream them in at full rez.
-	virtual void				SuspendTextureStreaming( ) = 0;
-	virtual void				ResumeTextureStreaming( ) = 0;
 
 	// uncache all materials. .  good for forcing reload of materials.
 	virtual void				UncacheAllMaterials( ) = 0;
@@ -1093,8 +1154,22 @@ public:
 
 	// Performs final verification of all compositor templates (after they've all been initially loaded).
 	virtual bool				VerifyTextureCompositorTemplates( ) = 0;
+
+	virtual RenderBackend_t		GetRenderBackend() const = 0;
+
+	// Stop attempting to stream in textures in response to usage.  Useful for phases such as loading or other explicit
+	// operations that shouldn't take usage of textures as a signal to stream them in at full rez.
+	virtual void				SuspendTextureStreaming() = 0;
+	virtual void				ResumeTextureStreaming() = 0;
 };
 
+extern IMaterialSystem *materials;
+extern IMaterialSystem *g_pMaterialSystem;
+
+FORCEINLINE bool IsVulkan( void )
+{
+	return g_pMaterialSystem->GetRenderBackend() == RENDER_BACKEND_VULKAN;
+}
 
 //-----------------------------------------------------------------------------
 // 
@@ -1559,13 +1634,19 @@ public:
 	// The texture will be created using the destination format, and will optionally have mipmaps generated.
 	// In case of error, the provided callback function will be called with the error texture.
 	virtual void AsyncCreateTextureFromRenderTarget( ITexture* pSrcRt, const char* pDstName, ImageFormat dstFmt, bool bGenMips, int nAdditionalCreationFlags, IAsyncTextureOperationReceiver* pRecipient, void* pExtraArgs ) = 0;
+
+	virtual void FogRadial( bool bRadial ) = 0;
+	virtual bool GetFogRadial() = 0;
 };
 
 template< class E > inline E* IMatRenderContext::LockRenderDataTyped( int nCount, const E* pSrcData )
 {
-	E *pDstData = (E*)LockRenderData( nCount*sizeof(E) );
+	int nSizeInBytes = nCount * sizeof(E);
+	E *pDstData = (E*)LockRenderData( nSizeInBytes );
 	if ( pSrcData && pDstData )
-		memutils::copy( pDstData, pSrcData, nCount );
+	{
+		memcpy( pDstData, pSrcData, nSizeInBytes );
+	}
 	return pDstData;
 }
 
@@ -1748,7 +1829,7 @@ class CMatRenderContextPtr : public CRefPtr<IMatRenderContext>
 {
 	typedef CRefPtr<IMatRenderContext> BaseClass;
 public:
-	CMatRenderContextPtr() = default;
+	CMatRenderContextPtr()																					{}
 	CMatRenderContextPtr( IMatRenderContext *pInit )			: BaseClass( pInit )						{ if ( BaseClass::m_pObject ) BaseClass::m_pObject->BeginRender(); }
 	CMatRenderContextPtr( IMaterialSystem *pFrom )				: BaseClass( pFrom->GetRenderContext() )	{ if ( BaseClass::m_pObject ) BaseClass::m_pObject->BeginRender(); }
 	~CMatRenderContextPtr()																					{ if ( BaseClass::m_pObject ) BaseClass::m_pObject->EndRender(); }
@@ -1819,7 +1900,6 @@ static void DoMatSysQueueMark( IMaterialSystem *pMaterialSystem, const char *psz
 
 //-----------------------------------------------------------------------------
 
-extern IMaterialSystem *materials;
-extern IMaterialSystem *g_pMaterialSystem;
+#include "materialsystem/imaterialsystemhardwareconfig.h"
 
 #endif // IMATERIALSYSTEM_H

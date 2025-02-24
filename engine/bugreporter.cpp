@@ -2851,19 +2851,6 @@ bool CBugUIPanel::AutoFillToken( char const *token, bool partial )
 
 void CBugUIPanel::CheckContinueQueryingSteamForCSERList()
 {
-	if ( !m_bQueryingSteamForCSER || !Steam3Client().SteamUtils() )
-	{
-		return;
-	}
-	
-	uint32 unIP;
-	uint16 usPort;
-	Steam3Client().SteamUtils()->GetCSERIPPort( &unIP, &usPort );
-	if ( unIP )
-	{
-		m_cserIP.SetIPAndPort( unIP, usPort );
-		m_bQueryingSteamForCSER = false;
-	}
 }
 
 static CBugUIPanel *g_pBugUI = NULL;

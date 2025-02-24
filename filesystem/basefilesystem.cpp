@@ -3619,6 +3619,15 @@ void CBaseFileSystem::NotifyFileUnloaded( const char *pszFilename, const char *p
 	m_FileTracker2.NoteFileUnloaded( pszFilename, pPathId );
 }
 
+void CBaseFileSystem::SetWriteProtectionEnable( bool bEnable )
+{
+
+}
+bool CBaseFileSystem::GetWriteProtectionEnable() const
+{
+	return false;
+}
+
 void CBaseFileSystem::SetSearchPathIsTrustedSource( CSearchPath *pSearchPath )
 {
 #if 1

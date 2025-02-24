@@ -1,0 +1,107 @@
+#! /usr/bin/env python
+# encoding: utf-8
+
+from waflib import Utils
+import os
+
+top = '.'
+PROJECT_NAME = 'replay'
+
+def options(opt):
+	# stub
+	return
+
+def configure(conf):
+	conf.define('REPLAY_DLL',1)
+	conf.define('REPLAY_ENABLED',1)
+
+def build(bld):
+	source = [
+		'baserecordingsession.cpp',
+		'baserecordingsessionblock.cpp',
+		'baserecordingsessionblockmanager.cpp',
+		'baserecordingsessionmanager.cpp',
+		'basethinker.cpp',
+		'compression.cpp',
+		'errorsystem.cpp',
+		'../common/netmessages.cpp',
+		'replay_dbg.cpp',
+		'replaysystem.cpp',
+		'sessioninfoheader.cpp',
+		'shared_cvars.cpp',
+		'shared_replaycontext.cpp',
+		'spew.cpp',
+		'sv_basejob.cpp',
+		'sv_commands.cpp',
+		'sv_filepublish.cpp',
+		'sv_fileservercleanup.cpp',
+		'sv_cvars.cpp',
+		'sv_publishtest.cpp',
+		'sv_recordingsession.cpp',
+		'sv_recordingsessionblock.cpp',
+		'sv_recordingsessionmanager.cpp',
+		'sv_recordingsessionblockmanager.cpp',
+		'sv_replaycontext.cpp',
+		'sv_sessionblockpublisher.cpp',
+		'sv_sessioninfopublisher.cpp',
+		'sv_sessionpublishmanager.cpp',
+		'sv_sessionrecorder.cpp',
+		'thinkmanager.cpp',
+	]
+
+	if not bld.env.DEDICATED:
+		source += [
+			'cl_commands.cpp',
+			'cl_cvars.cpp',
+			'cl_downloader.cpp',
+			'cl_recordingsession.cpp',
+			'cl_recordingsessionblock.cpp',
+			'cl_recordingsessionblockmanager.cpp',
+			'cl_recordingsessionmanager.cpp',
+			'cl_renderqueue.cpp',
+			'cl_replaycontext.cpp',
+			'cl_replaymanager.cpp',
+			'cl_replaymovie.cpp',
+			'cl_replaymoviemanager.cpp',
+			'cl_performancecontroller.cpp',
+			'cl_performancemanager.cpp',
+			'cl_screenshotmanager.cpp',
+			'cl_sessionblockdownloader.cpp',
+			'cl_sessioninfodownloader.cpp',
+			'../common/imageutils.cpp',
+			'managertest.cpp',
+			'replay_reconstructor.cpp',
+		]
+
+	includes = [
+		'.',
+		'../../public',
+		'../../public/tier0',
+		'../../public/tier1',
+		'../../common'
+	]
+
+	defines = []
+
+	libs = ['replay_common','tier0','tier1','tier2','tier3','vstdlib','mathlib','bitmap','vtf','JPEG','PNG','ZLIB','BZ2','CURL']
+
+	if bld.env.DEST_OS == 'win32':
+		libs += ['USER32', 'IMM32', 'GDI32', 'SHELL32', 'OLE32', 'SHLWAPI', 'WINMM']
+	elif bld.env.DEST_OS == 'darwin':
+		libs += ['APPLICATIONSERVICES']
+		
+	install_path = bld.env.LIBDIR
+
+	bld.shlib(
+		source   = source,
+		target   = PROJECT_NAME,
+		name     = PROJECT_NAME,
+		features = 'c cxx',
+		includes = includes,
+		defines  = defines,
+		use      = libs,
+		install_path = install_path,
+		subsystem = bld.env.MSVC_SUBSYSTEM,
+		idx      = bld.get_taskgen_count()
+	)
+

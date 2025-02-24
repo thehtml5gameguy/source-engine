@@ -139,31 +139,6 @@ void CBenchmarkResults::SetResultsFilename( const char *pFilename )
 //-----------------------------------------------------------------------------
 void CBenchmarkResults::Upload()
 {
-#ifndef SWDS
-	if ( !m_szFilename[0] || !Steam3Client().SteamUtils() )
-		return;
-	uint32 cserIP = 0;
-	uint16 cserPort = 0;
-	while ( cserIP == 0 )
-	{
-		Steam3Client().SteamUtils()->GetCSERIPPort( &cserIP, &cserPort );
-		if ( !cserIP )
-			Sys_Sleep( 10 );
-	}
-
-	netadr_t netadr_CserIP( cserIP, cserPort );
-	// upload
-	char szFilename[256];
-	Q_snprintf( szFilename, sizeof( szFilename ), "%s\\%s", DEFAULT_RESULTS_FOLDER, m_szFilename );
-	KeyValues *kv = new KeyValues( "benchmark" );
-	if ( kv->LoadFromFile( g_pFileSystem, szFilename, "MOD" ) )
-	{
-		// this sends the data to the Steam CSER
-		UploadData( netadr_CserIP.ToString(), "benchmark", kv );
-	}
-
-	kv->deleteThis();
-#endif
 }
 
 void CBenchmarkResults::Frame()

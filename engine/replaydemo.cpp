@@ -28,6 +28,7 @@
 #include "replay/ireplaysystem.h"
 #include "replay/ireplaysessionrecorder.h"
 #include "replay/shared_defs.h"
+#include "vcrmode.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"

@@ -96,7 +96,7 @@ INLINE_ON_PS3 void CThread::SetName(const char *pszName)
 //-----------------------------------------------------
 
 // Start thread running  - error if already running
-INLINE_ON_PS3 bool CThread::Start( unsigned nBytesStack, ThreadPriorityEnum_t nPriority )
+INLINE_ON_PS3 bool CThread::Start( unsigned nBytesStack )
 {
 	AUTO_LOCK( m_Lock );
 
@@ -128,11 +128,6 @@ INLINE_ON_PS3 bool CThread::Start( unsigned nBytesStack, ThreadPriorityEnum_t nP
 		nBytesStack ? STACK_SIZE_PARAM_IS_A_RESERVATION : 0,
 		(LPDWORD)&m_threadId );
 
-	if( nPriority != TP_PRIORITY_DEFAULT )
-	{
-		SetThreadPriority( m_hThread, nPriority );
-	}
-
 	if ( !m_hThread )
 	{
 		AssertMsg1( 0, "Failed to create thread (error 0x%x)", GetLastError() );
@@ -158,7 +153,7 @@ INLINE_ON_PS3 bool CThread::Start( unsigned nBytesStack, ThreadPriorityEnum_t nP
 	if ( sys_ppu_thread_create( &m_threadId, 
 			(void(*)(uint64_t))GetThreadProc(), 
 			(uint64_t)(new ThreadInit_t( init )), 
-			nPriority, 
+			PRIORITY_DEFAULT, 
 			nBytesStack, 
 			SYS_PPU_THREAD_CREATE_JOINABLE  , 
 			threadName ) != CELL_OK )

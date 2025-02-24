@@ -7,7 +7,6 @@ import vpc_parser
 
 top = '.'
 PROJECT_NAME = 'client'
-
 def options(opt):
 	return
 
@@ -27,6 +26,7 @@ def configure(conf):
 	conf.env.GAMES = game
 
 	conf.env.append_unique('DEFINES', ['DISABLE_STEAM=1'])
+	conf.undefine('REPLAY_ENABLED')
 
 	if game not in games.keys():
 		conf.fatal("Couldn't find game: ", game)

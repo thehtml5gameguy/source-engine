@@ -1600,8 +1600,6 @@ bool CThreadFullMutex::Release()
 //-----------------------------------------------------------------------------
 
 #if ( defined(WIN32) || defined(OSX) ) && !defined(PLATFORM_PS3) 
-namespace GenericThreadLocals
-{
 CThreadLocalBase::CThreadLocalBase()
 {
 #ifdef _WIN32
@@ -1657,7 +1655,6 @@ void CThreadLocalBase::Set( void *value )
 		AssertMsg( 0, "Bad thread local" );
 #endif
 }
-} // namespace GenericThreadLocals
 #endif // ( defined(WIN32) || defined(POSIX) ) && !defined(PLATFORM_PS3) 
 //-----------------------------------------------------------------------------
 

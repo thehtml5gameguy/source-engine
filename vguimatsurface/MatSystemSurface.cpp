@@ -3453,6 +3453,11 @@ void CMatSystemSurface::EndSkinCompositionPainting()
 	g_bInDrawing = false;
 }
 
+void CMatSystemSurface::DrawSetTextureRGBAEx2( int id, const unsigned char* rgba, int wide, int tall, ImageFormat format, bool bLinearFilter )
+{
+	// TODO: Implement
+}
+
 
 //-----------------------------------------------------------------------------
 // Gets texture coordinates for drawing the full screen buffer

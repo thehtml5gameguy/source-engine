@@ -51,6 +51,8 @@ projects={
 		'datacache',
 		'datamodel',
 		'dmxloader',
+		'replay/common',
+		'replay',
 		'engine',
 		'engine/voice_codecs/minimp3',
 		'filesystem',
@@ -121,6 +123,8 @@ projects={
 		'dedicated',
 		'dedicated_main',
 		'dmxloader',
+		'replay/common',
+		'replay',
 		'engine',
 		'game/server',
 		'ivp/havana',
@@ -280,6 +284,9 @@ def define_platform(conf):
 		])
 
 	conf.define('GIT_COMMIT_HASH', conf.env.GIT_VERSION)
+	conf.define('RAD_TELEMETRY_ENABLED', 1)
+	conf.define('VPROF_ENABLED', 1)
+	conf.define('REPLAY_ENABLED', 1)
 
 
 def options(opt):
@@ -503,6 +510,12 @@ def configure(conf):
 
 	if conf.env.DEST_OS != 'win32':
 		flags += ['-pipe', '-fPIC', '-L'+os.path.abspath('.')+'/lib/'+conf.env.DEST_OS+'/'+conf.env.DEST_CPU+'/']
+		flags += ['-Wl,--wrap=fopen', '-Wl,--wrap=freopen', '-Wl,--wrap=open',    '-Wl,--wrap=creat', '-Wl,--wrap=access', '-Wl,--wrap=__xstat',
+		'-Wl,--wrap=stat',  '-Wl,--wrap=stat64',  '-Wl,--wrap=lstat',   '-Wl,--wrap=fopen64',  '-Wl,--wrap=open64',  '-Wl,--wrap=opendir',
+		'-Wl,--wrap=chmod', '-Wl,--wrap=chown',   '-Wl,--wrap=lchown',  '-Wl,--wrap=symlink',  '-Wl,--wrap=link',    '-Wl,--wrap=__lxstat64',
+		'-Wl,--wrap=mknod', '-Wl,--wrap=utimes',  '-Wl,--wrap=unlink',  '-Wl,--wrap=rename',   '-Wl,--wrap=utime',   '-Wl,--wrap=__xstat64',
+		'-Wl,--wrap=mount', '-Wl,--wrap=mkfifo',  '-Wl,--wrap=mkdir',   '-Wl,--wrap=rmdir',    '-Wl,--wrap=scandir', '-Wl,--wrap=realpath',
+		'-Wl,--wrap=__lxstat']
 	if conf.env.COMPILER_CC != 'msvc':
 		flags += ['-pthread']
 
@@ -576,6 +589,12 @@ def configure(conf):
 	cxxflags = list(cflags)
 	if conf.env.DEST_OS != 'win32':
 		cxxflags += ['-std=c++11','-fpermissive']
+		cxxflags += ['-Wl,--wrap=fopen', '-Wl,--wrap=freopen', '-Wl,--wrap=open',    '-Wl,--wrap=creat', '-Wl,--wrap=access', '-Wl,--wrap=__xstat',
+		'-Wl,--wrap=stat',  '-Wl,--wrap=stat64',  '-Wl,--wrap=lstat',   '-Wl,--wrap=fopen64',  '-Wl,--wrap=open64',  '-Wl,--wrap=opendir',
+		'-Wl,--wrap=chmod', '-Wl,--wrap=chown',   '-Wl,--wrap=lchown',  '-Wl,--wrap=symlink',  '-Wl,--wrap=link',    '-Wl,--wrap=__lxstat64',
+		'-Wl,--wrap=mknod', '-Wl,--wrap=utimes',  '-Wl,--wrap=unlink',  '-Wl,--wrap=rename',   '-Wl,--wrap=utime',   '-Wl,--wrap=__xstat64',
+		'-Wl,--wrap=mount', '-Wl,--wrap=mkfifo',  '-Wl,--wrap=mkdir',   '-Wl,--wrap=rmdir',    '-Wl,--wrap=scandir', '-Wl,--wrap=realpath',
+		'-Wl,--wrap=__lxstat']
 
 	if conf.env.COMPILER_CC == 'gcc':
 		conf.define('COMPILER_GCC', 1)

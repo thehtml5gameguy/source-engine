@@ -15,6 +15,7 @@
 
 #include "interface.h"
 #include "vgui/VGUI.h"
+#include "eiface.h"
 
 // Forward declarations.
 namespace vgui
@@ -49,9 +50,12 @@ public:
 	virtual vgui::VPANEL	GetPanel( VGuiPanel_t type ) = 0;
 
 	virtual bool			IsGameUIVisible() = 0;
+
+	virtual bool			GetWorkshopMap( uint32 uIndex, WorkshopMapDesc_t *pDesc ) = 0;
 };
 
-#define VENGINE_VGUI_VERSION	"VEngineVGui001"
+#define VENGINE_VGUI_VERSION		"VEngineVGui002"
+#define VENGINE_VGUI_VERSION_OLD	"VEngineVGui001"
 
 #if defined(_STATIC_LINKED) && defined(CLIENT_DLL)
 namespace Client

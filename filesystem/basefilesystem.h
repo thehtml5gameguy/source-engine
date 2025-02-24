@@ -295,6 +295,9 @@ public:
 	virtual bool				FullPathToRelativePath( const char *pFullpath, OUT_Z_CAP(maxLenInChars) char *pDest, int maxLenInChars );
 	virtual bool				GetCaseCorrectFullPath_Ptr( const char *pFullPath, OUT_Z_CAP(maxLenInChars) char *pDest, int maxLenInChars );
 
+	virtual void			SetWriteProtectionEnable( bool bEnable );
+	virtual bool			GetWriteProtectionEnable() const;
+
 	// removes a file from disk
 	virtual void				RemoveFile( char const* pRelativePath, const char *pathID );
 

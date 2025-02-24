@@ -65,7 +65,7 @@ def build(bld):
 		]
 	else:
 		source += [
-			#'pathmatch.cpp',
+			'pathmatch.cpp',
 			'processor_detect_linux.cpp',
 			'qsort_s.cpp',
 		]

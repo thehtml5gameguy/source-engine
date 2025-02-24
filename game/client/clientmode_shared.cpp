@@ -50,8 +50,6 @@
 #include "replay/ienginereplay.h"
 #include "replay/vgui/replayreminderpanel.h"
 #include "replay/vgui/replaymessagepanel.h"
-#include "econ/econ_controls.h"
-#include "econ/confirm_dialog.h"
 
 extern IClientReplayContext *g_pClientReplayContext;
 extern ConVar replay_rendersetting_renderglow;
@@ -1348,7 +1346,9 @@ void ClientModeShared::DisplayReplayMessage( const char *pLocalizeName, float fl
 		}
 		else
 		{
+#if defined( TF_CLIENT_DLL )
 			ShowMessageBox( "#Replay_GenericMsgTitle", pLocalizeName, "#GameUI_OK" );
+#endif
 		}
 	}
 	else

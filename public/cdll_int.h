@@ -575,6 +575,8 @@ public:
 	virtual void DisconnectInternal() = 0;
 
 	virtual int GetInstancesRunningCount( ) = 0;
+
+	virtual void SetRichPresenceConnect( const char *pszOverride ) = 0;
 };
 
 
@@ -789,6 +791,10 @@ public:
 	virtual bool DisconnectAttempt( void ) = 0;
 
 	virtual bool IsConnectedUserInfoChangeAllowed( IConVar *pCvar ) = 0;
+
+	virtual bool BHaveChatSuspensionInCurrentMatch() = 0;
+
+	virtual void DisplayVoiceUnavailableMessage() = 0;
 
 	virtual void IN_TouchEvent( int type, int fingerId, int x, int y ) = 0;
 };

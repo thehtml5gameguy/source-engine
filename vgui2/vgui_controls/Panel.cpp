@@ -73,9 +73,9 @@ static char *CopyString( const char *in )
 	if ( !in )
 		return NULL;
 
-	int len = strlen( in );
+	int len = V_strlen( in );
 	char *n = new char[ len + 1 ];
-	Q_strncpy( n, in, len  + 1 );
+	V_strncpy( n, in, len  + 1 );
 	return n;
 }
 
@@ -1431,6 +1431,7 @@ void Panel::SetParent(Panel *newParent)
 	Panel* pCurrentParent = GetParent();
 	if ( pCurrentParent )
 	{
+		pCurrentParent->OnChildRemoved( this );
 		pCurrentParent->m_dictChidlren.Remove( GetName() );
 	}
 
@@ -1449,10 +1450,8 @@ void Panel::SetParent(Panel *newParent)
 //-----------------------------------------------------------------------------
 void Panel::SetParent(VPANEL newParent)
 {
-
 	if (newParent)
 	{
-
 		ipanel()->SetParent(GetVPanel(), newParent);
 	}
 	else
@@ -1460,19 +1459,22 @@ void Panel::SetParent(VPANEL newParent)
 		ipanel()->SetParent(GetVPanel(), NULL);
 	}
 
-	if (GetVParent() )
+	if (GetVParent())
 	{
-		if( ipanel()->IsProportional(GetVParent()) )
-			SetProportional(true);
+		SetProportional(ipanel()->IsProportional(GetVParent()));
 
-		if( !IsPopup() )
+		if ( !IsPopup() )
 		{
 			// most of the time KBInput == parents kbinput
 			if (ipanel()->IsKeyBoardInputEnabled(GetVParent()) != IsKeyBoardInputEnabled())
+			{
 				SetKeyBoardInputEnabled(ipanel()->IsKeyBoardInputEnabled(GetVParent()));
+			}
 
 			if (ipanel()->IsMouseInputEnabled(GetVParent()) != IsMouseInputEnabled())
+			{
 				SetMouseInputEnabled(ipanel()->IsMouseInputEnabled(GetVParent()));
+			}
 		}
 	}
 
@@ -1491,6 +1493,14 @@ void Panel::OnChildAdded(VPANEL child)
 		auto idx = m_dictChidlren.Insert( pChild->GetName() );
 		m_dictChidlren[ idx ].Set( child );
 	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void Panel::OnChildRemoved( Panel* pChild )
+{
+
 }
 
 //-----------------------------------------------------------------------------
@@ -1802,9 +1812,22 @@ void Panel::InternalCursorMoved(int x, int y)
 		m_pTooltips->ShowTooltip(this);
 	}
 
-	ScreenToLocal(x, y);
+	
+	int localX = x;
+	int localY = y;
 
-	OnCursorMoved(x, y);
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler && m_bSendMoveEventsToHandler )
+	{
+		pMouseHandler->ScreenToLocal(localX, localY);
+		pMouseHandler->OnCursorMoved(localX, localY);
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput || !m_bSendMoveEventsToHandler )
+	{
+		ScreenToLocal(localX, localY);
+		OnCursorMoved(localX, localY);
+	}
 }
 
 void Panel::InternalCursorEntered()
@@ -1826,7 +1849,16 @@ void Panel::InternalCursorEntered()
 		m_pTooltips->ShowTooltip(this);
 	}
 
-	OnCursorEntered();
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler && m_bSendMoveEventsToHandler )
+	{
+		pMouseHandler->OnCursorEntered();
+	}
+	
+	if ( !pMouseHandler || m_bActOnHandledMouseInput || !m_bSendMoveEventsToHandler )
+	{
+		OnCursorEntered();
+	}
 }
 
 void Panel::InternalCursorExited()
@@ -1842,7 +1874,16 @@ void Panel::InternalCursorExited()
 		m_pTooltips->HideTooltip();
 	}
 
-	OnCursorExited();
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler && m_bSendMoveEventsToHandler )
+	{
+		pMouseHandler->OnCursorExited();
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput || !m_bSendMoveEventsToHandler )
+	{
+		OnCursorExited();
+	}
 }
 
 bool Panel::IsChildOfSurfaceModalPanel()
@@ -1973,7 +2014,8 @@ void Panel::InternalMousePressed(int code)
 	{
 		pMouseHandler->OnMousePressed( (MouseCode)code );
 	}
-	else
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput )
 	{
 		OnMousePressed( (MouseCode)code );
 	}
@@ -2011,7 +2053,8 @@ void Panel::InternalMouseDoublePressed(int code)
 	{
 		pMouseHandler->OnMouseDoublePressed( (MouseCode)code );
 	}
-	else
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput )
 	{
 		OnMouseDoublePressed( (MouseCode)code );
 	}
@@ -2063,7 +2106,17 @@ void Panel::InternalMouseTriplePressed( int code )
 		return;
 	}
 
-	OnMouseTriplePressed((MouseCode)code);
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler )
+	{
+		pMouseHandler->OnMouseTriplePressed((MouseCode)code);
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput )
+	{
+		OnMouseTriplePressed((MouseCode)code);
+	}
+
 #if defined( VGUI_USEDRAGDROP )
 	DragDropStartDragging();
 #endif
@@ -2122,7 +2175,16 @@ void Panel::InternalMouseReleased(int code)
 	}
 #endif
 
-	OnMouseReleased((MouseCode)code);
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler )
+	{
+		pMouseHandler->OnMouseReleased((MouseCode)code);
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput )
+	{
+		OnMouseReleased((MouseCode)code);
+	}
 }
 
 void Panel::InternalMouseWheeled(int delta)
@@ -2135,7 +2197,16 @@ void Panel::InternalMouseWheeled(int delta)
 	if ( !ShouldHandleInputMessage() )
 		return;
 
-	OnMouseWheeled(delta);
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler )
+	{
+		pMouseHandler->InternalMouseWheeled( delta );
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput )
+	{
+		OnMouseWheeled(delta);
+	}
 }
 
 void Panel::InternalKeyCodePressed(int code)
@@ -3575,7 +3646,15 @@ void Panel::RequestFocus(int direction)
 //-----------------------------------------------------------------------------
 void Panel::OnRequestFocus(VPANEL subFocus, VPANEL defaultPanel)
 {
-	CallParentFunction(new KeyValues("OnRequestFocus", "subFocus", ivgui()->PanelToHandle( subFocus ), "defaultPanel", ivgui()->PanelToHandle( defaultPanel )));
+	// Josh: SDK compat.
+#ifdef PLATFORM_64BITS
+	KeyValues* p = new KeyValues("OnRequestFocus");
+	p->SetPtr("subFocus", (void*)subFocus);
+	p->SetPtr("defaultPanel", (void*)defaultPanel);
+	CallParentFunction(p);
+#else
+	CallParentFunction(new KeyValues("OnRequestFocus", "subFocus", subFocus, "defaultPanel", defaultPanel));
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -3802,9 +3881,9 @@ void Panel::SetBuildGroup(BuildGroup* buildGroup)
 {
 	//TODO: remove from old group
 
-        Assert(buildGroup != NULL);
-        _buildGroup = buildGroup;
-        _buildGroup->PanelAdded(this);
+	Assert(buildGroup != NULL);
+	_buildGroup = buildGroup;
+	_buildGroup->PanelAdded(this);
 }
 
 bool Panel::IsBuildGroupEnabled()
@@ -3873,7 +3952,7 @@ void Panel::InvalidateLayout( bool layoutNow, bool reloadScheme )
 		for (int i = 0; i < GetChildCount(); i++)
 		{
 			vgui::Panel* panel = GetChild(i);
-			if( panel )
+			if( panel && !panel->_flags.IsFlagSet( MARKED_FOR_DELETION ) )
 			{
 				panel->InvalidateLayout(layoutNow, true);
 			}
@@ -5095,6 +5174,11 @@ void Panel::OnMessage(const KeyValues *params, VPANEL ifromPanel)
 						typedef void (Panel::*MessageFunc_PtrInt_t)(void *, int);
 						(this->*((MessageFunc_PtrInt_t)pMap->func))( param1->GetPtr(), param2->GetInt() );
 					}
+					else if ( (DATATYPE_PTR == pMap->firstParamType) && (DATATYPE_PTR == pMap->secondParamType) )
+					{
+						typedef void (Panel::*MessageFunc_PtrPtr_t)(void *, void *);
+						(this->*((MessageFunc_PtrPtr_t)pMap->func))( param1->GetPtr(), param2->GetPtr() );
+					}
 					else if ( (DATATYPE_CONSTCHARPTR == pMap->firstParamType) && (DATATYPE_INT == pMap->secondParamType) )
 					{
 						typedef void (Panel::*MessageFunc_ConstCharPtrInt_t)(const char *, int);
@@ -5131,13 +5215,6 @@ void Panel::OnMessage(const KeyValues *params, VPANEL ifromPanel)
 						typedef void (Panel::*MessageFunc_HandleConstCharPtr_t)(VPANEL, const wchar_t *);
 						VPANEL vp = ivgui()->HandleToPanel( param1->GetInt() );
 						(this->*((MessageFunc_HandleConstCharPtr_t)pMap->func))( vp, param2->GetWString() );
-					}
-					else if ( (DATATYPE_HANDLE == pMap->firstParamType) && (DATATYPE_HANDLE == pMap->secondParamType) )
-					{
-						typedef void (Panel::*MessageFunc_HandleConstCharPtr_t)(VPANEL, VPANEL);
-						VPANEL vp1 = ivgui()->HandleToPanel( param1->GetInt() );
-						VPANEL vp2 = ivgui()->HandleToPanel( param2->GetInt() );
-						(this->*((MessageFunc_HandleConstCharPtr_t)pMap->func))( vp1, vp2 );
 					}
 					else
 					{
@@ -5447,9 +5524,11 @@ void Panel::SetSilentMode( bool bSilent )
 //-----------------------------------------------------------------------------
 // Purpose: mouse events will be send to handler panel instead of this panel
 //-----------------------------------------------------------------------------
-void Panel::InstallMouseHandler( Panel *pHandler )
+void Panel::InstallMouseHandler( Panel *pHandler, bool bThisHandlesAsWell /* = false */, bool bMovementEvents /* = false */ )
 {
 	m_hMouseEventHandler = pHandler;
+	m_bActOnHandledMouseInput = bThisHandlesAsWell;
+	m_bSendMoveEventsToHandler = bMovementEvents;
 }
 
 //-----------------------------------------------------------------------------
@@ -6374,7 +6453,20 @@ void Panel::GetCornerTextureSize( int& w, int& h )
 		w = h = 0;
 		return;
 	}
-	surface()->DrawGetTextureSize(m_nBgTextureId1, w, h);
+
+	if ( IsProportional() )
+	{
+		// Do not use the scheme for this, so it's screen space that affects the rounding always.
+		w = MAX( scheme()->GetProportionalScaledValue( 8 ) / 2, 8 );
+		h = w;
+	}
+	else
+	{
+		// Legacy for size of all old 800corner1 (8x8) images.
+		// Nowe we use 8x80corner images (64x64)
+		w = 8;
+		h = 8;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -7490,7 +7582,7 @@ void Panel::OnDraggablePanelPaint()
 		wchar_t sz[ 64 ];
 		V_swprintf_safe( sz, L"[ %i ]", m_pDragDrop->m_DragPanels.Count() );
 
-		surface()->DrawPrintText( sz, wcslen( sz ) );
+		surface()->DrawPrintText( sz, V_wcslen( sz ) );
 	}
 #endif
 }
@@ -8350,7 +8442,7 @@ bool Panel::IsConsoleStylePanel() const
 class CPanelMessageMapDictionary
 {
 public:
-	CPanelMessageMapDictionary() : m_PanelMessageMapPool( sizeof(PanelMessageMap), 32, CUtlMemoryPool::GROW_FAST, "CPanelMessageMapDictionary::m_PanelMessageMapPool" )
+	CPanelMessageMapDictionary() : m_PanelMessageMapPool( sizeof(PanelMessageMap), 32, CUtlMemoryPool::GROW_FAST, "CPanelMessageMapDictionary::m_PanelMessageMapPool", alignof( PanelMessageMap ) )
 	{
 		m_MessageMaps.RemoveAll();
 	}
@@ -8419,7 +8511,7 @@ PanelMessageMap *CPanelMessageMapDictionary::FindOrAddPanelMessageMap( char cons
 class CPanelKeyBindingMapDictionary
 {
 public:
-	CPanelKeyBindingMapDictionary() : m_PanelKeyBindingMapPool( sizeof(PanelKeyBindingMap), 32, CUtlMemoryPool::GROW_FAST, "CPanelKeyBindingMapDictionary::m_PanelKeyBindingMapPool" )
+	CPanelKeyBindingMapDictionary() : m_PanelKeyBindingMapPool( sizeof(PanelKeyBindingMap), 32, CUtlMemoryPool::GROW_FAST, "CPanelKeyBindingMapDictionary::m_PanelKeyBindingMapPool", alignof( PanelKeyBindingMap ) )
 	{
 		m_MessageMaps.RemoveAll();
 	}

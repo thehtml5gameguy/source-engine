@@ -2987,6 +2987,11 @@ void CMaterialSystem::RecomputeAllStateSnapshots()
 	g_pShaderAPI->ResetRenderState();
 }
 
+RenderBackend_t CMaterialSystem::GetRenderBackend() const
+{
+	return IsOpenGL() ? RENDER_BACKEND_TOGL : RENDER_BACKEND_D3D9;
+}
+
 //-----------------------------------------------------------------------------
 // Suspend texture streaming operations, for abormal periods such as loading
 //-----------------------------------------------------------------------------

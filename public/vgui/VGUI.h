@@ -12,6 +12,8 @@
 #pragma once
 #endif
 
+#include "tier0/platform.h"
+
 #define null 0L
 
 #define NeedProportional() (IsAndroid() || CommandLine()->CheckParm("-gameuiproportionality"))
@@ -37,15 +39,6 @@
 typedef unsigned char  uchar;
 typedef unsigned short ushort;
 typedef unsigned int   uint;
-typedef unsigned long  ulong;
-
-#ifdef PLATFORM_64BITS
-typedef long long			intp;
-typedef unsigned long long	uintp;
-#else
-typedef int					intp;
-typedef unsigned int		uintp;
-#endif
 
 #ifndef _WCHAR_T_DEFINED
 // DAL - wchar_t is a built in define in gcc 3.2 with a size of 4 bytes
@@ -66,13 +59,13 @@ typedef uintp VPANEL;
 
 // handles to vgui objects
 // NULL values signify an invalid value
-typedef unsigned long HScheme;
+typedef uint32 HScheme;
 // Both -1 and 0 are used for invalid textures. Be careful.
-typedef unsigned long HTexture;
-typedef unsigned long HCursor;
-typedef unsigned long HPanel;
-const HPanel INVALID_PANEL = (HPanel)-1;
-typedef unsigned long HFont;
+typedef uint32 HTexture;
+typedef uint32 HCursor;
+typedef uint32 HPanel;
+const HPanel INVALID_PANEL = 0xffffffff;
+typedef uint32 HFont;
 const HFont INVALID_FONT = 0; // the value of an invalid font handle
 }
 

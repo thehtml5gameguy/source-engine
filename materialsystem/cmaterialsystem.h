@@ -373,6 +373,9 @@ public:
 	ShaderAPITextureHandle_t				GetLinearToGammaIdentityTableTextureHandle() const		{ return m_LinearToGammaIdentityTableTextureHandle; }
 	ShaderAPITextureHandle_t				GetMaxDepthTextureHandle() const						{ return m_MaxDepthTextureHandle; }
 
+
+	RenderBackend_t GetRenderBackend() const;
+
 	//---------------------------------------------------------
 	// Material and texture management
 	//---------------------------------------------------------

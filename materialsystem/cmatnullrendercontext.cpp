@@ -689,6 +689,17 @@ public:
 		return true;
 	}
 
+	void FogRadial( bool bRadial )
+	{
+		AssertMsg( 0, "CMatNullRenderContext only provides base features, not a stub (right now)" );
+	}
+
+	bool GetFogRadial() 
+	{
+		AssertMsg( 0, "CMatNullRenderContext only provides base features, not a stub (right now)" );
+		return true;
+	}
+
 	void ForceHardwareSync()
 	{
 		AssertMsg( 0, "CMatNullRenderContext only provides base features, not a stub (right now)" );

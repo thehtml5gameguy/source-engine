@@ -385,8 +385,8 @@ void CalcBoneQuaternion( int frame, float s,
 		q = tmp;
 		Assert( q.IsValid() );
 		return;
-	}
-
+	} 
+	
 	if ( panim->flags & STUDIO_ANIM_RAWROT2 )
 	{
 		Quaternion64 tmp;
@@ -1340,7 +1340,6 @@ void WorldSpaceSlerp(
 			Quaternion srcQ, destQ;
 			Vector srcPos, destPos;
 			Quaternion targetQ;
-			Vector targetPos;
 			Vector tmp;
 
 			BuildBoneChain( pStudioHdr, rootXform, pos1, q1, i, destBoneToWorld, destBoneComputed );
@@ -1650,7 +1649,6 @@ void ScaleBones(
 	int boneMask )
 {
 	int			i, j;
-	Quaternion		q3;
 
 	mstudioseqdesc_t &seqdesc = ((CStudioHdr *)pStudioHdr)->pSeqdesc( sequence );
 
@@ -2483,7 +2481,6 @@ void CalcBoneAdj(
 	int					i, j, k;
 	float				value;
 	mstudiobonecontroller_t *pbonecontroller;
-	Vector p0;
 	RadianEuler a0;
 	Quaternion q0;
 	
@@ -2638,14 +2635,14 @@ public:
          X[i] = P[i];
       normalize(X);
 
-// Its y axis is perpendicular to P, so Y = unit( E - X(E·X) ).
+// Its y axis is perpendicular to P, so Y = unit( E - X(Eï¿½X) ).
 
       float dDOTx = dot(D,X);
       for (i = 0 ; i < 3 ; i++)
          Y[i] = D[i] - dDOTx * X[i];
       normalize(Y);
 
-// Its z axis is perpendicular to both X and Y, so Z = X×Y.
+// Its z axis is perpendicular to both X and Y, so Z = Xï¿½Y.
 
       cross(X,Y,Z);
 
@@ -3627,7 +3624,6 @@ void CIKTarget::SetNormal( const Vector &normal )
 	MatrixSetColumn( forward, 0, m1 );
 	MatrixSetColumn( right, 1, m1 );
 	MatrixSetColumn( normal, 2, m1 );
-	QAngle a1;
 	Vector p1;
 	MatrixAngles( m1, est.q, p1 );
 }
@@ -3757,7 +3753,6 @@ void CIKContext::UpdateTargets( Vector pos[], Quaternion q[], matrix3x4_t boneTo
 			case IK_GROUND:
 			// case IK_SELF:
 				{
-					matrix3x4_t footTarget;
 					CIKTarget *pTarget = &m_target[pRule->slot];
 					pTarget->chain = pRule->chain;
 					pTarget->type = pRule->type;
@@ -4434,8 +4429,8 @@ void CIKContext::SolveLock(
 	// eval current ik'd bone
 	BuildBoneChain( pos, q, bone, boneToWorld, boneComputed );
 
-	Vector p1, p2, p3;
-	Quaternion q2, q3;
+	Vector p1, p3;
+	Quaternion q2;
 
 	// current p and q
 	MatrixPosition( boneToWorld[bone], p1 );
@@ -4720,7 +4715,6 @@ void DoQuatInterpBone(
 	)
 {
 	matrix3x4_t			bonematrix;
-	Vector				control;
 
 	mstudioquatinterpbone_t *pProc = (mstudioquatinterpbone_t *)pbones[ibone].pProcedure( );
 	if (pProc && pbones[pProc->control].parent != -1)

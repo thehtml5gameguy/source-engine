@@ -6,6 +6,7 @@
 #include "replay/ireplaysystem.h"
 #include "replayserver.h"
 #include "vgui/ILocalize.h"
+#include "filesystem_engine.h"
 #include "server.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -120,6 +121,7 @@ void ReplaySystem_Shutdown()
 
 //----------------------------------------------------------------------------------------
 
+bool replayEnabledCache = false;
 bool Replay_IsSupportedModAndPlatform()
 {
 	if ( !IsPC() )
@@ -132,7 +134,18 @@ bool Replay_IsSupportedModAndPlatform()
 		if ( !Q_stricmp( COM_GetModDirectory(), pCurGame ) )
 			return true;
 	}
-	return false;
+
+	if(!replayEnabledCache)
+	{
+		KeyValues *modinfo = new KeyValues("ModInfo");
+		if ( modinfo->LoadFromFile( g_pFileSystem, "gameinfo.txt" ) )
+		{
+			replayEnabledCache = modinfo->GetBool( "ReplayRequired" );
+		}
+		modinfo->deleteThis();
+	}
+
+	return replayEnabledCache;
 }
 
 //----------------------------------------------------------------------------------------

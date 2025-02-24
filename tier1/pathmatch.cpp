@@ -80,8 +80,8 @@ static bool s_bShowDiag;
 #define _COMPILE_TIME_ASSERT(pred) switch(0){case 0:case pred:;}
 
 #define WRAP( fn, ret, ... ) \
-	ret __real_##fn(__VA_ARGS__); \
-	ret __wrap_##fn(__VA_ARGS__)
+	__attribute__((visibility("default"))) ret __real_##fn(__VA_ARGS__); \
+	__attribute__((visibility("default"))) ret __wrap_##fn(__VA_ARGS__)
 
 #define CALL( fn ) __real_##fn
 

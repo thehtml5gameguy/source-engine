@@ -635,6 +635,8 @@ private:
 
 	virtual void SetDepthFeatheringPixelShaderConstant( int iConstant, float fDepthBlendScale ) {}
 
+	virtual int GetPixelFogCombo1( bool bSupportsRadial ) { return 0; };
+
 	void SetPixelShaderFogParams( int reg )
 	{
 	}

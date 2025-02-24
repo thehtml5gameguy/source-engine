@@ -231,7 +231,7 @@ public:
 	//  and execute or execute pFunctor right after completing current job and
 	//  before looking for another job.
 	//-----------------------------------------------------
-	// void ExecuteHighPriorityFunctor( CFunctor *pFunctor );
+	void ExecuteHighPriorityFunctor( CFunctor *pFunctor );
 
 	//-----------------------------------------------------
 	// Add an function object to the queue (master thread)
@@ -537,8 +537,9 @@ int CThreadPool::NumIdleThreads()
 	return m_nIdleThreads;
 }
 
-/*void CThreadPool::ExecuteHighPriorityFunctor( CFunctor *pFunctor )
+void CThreadPool::ExecuteHighPriorityFunctor( CFunctor *pFunctor )
 {
+	/*
 	int i;
 	for ( i = 0; i < m_Threads.Count(); i++ )
 	{
@@ -549,7 +550,8 @@ int CThreadPool::NumIdleThreads()
 	{
 		m_Threads[i]->WaitForReply();
 	}
-}*/
+	*/
+}
 
 //---------------------------------------------------------
 // Pause/resume processing jobs

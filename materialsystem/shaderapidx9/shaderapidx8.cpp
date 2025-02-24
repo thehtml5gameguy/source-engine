@@ -960,6 +960,7 @@ public:
 	MaterialFogMode_t GetSceneFogMode( );
 	MaterialFogMode_t GetPixelFogMode( );
 	int GetPixelFogCombo( );//0 is either range fog, or no fog simulated with rigged range fog values. 1 is height fog
+	int GetPixelFogCombo1( bool);//0 is either range fog, or no fog simulated with rigged range fog values. 1 is height fog
 	bool ShouldUsePixelFogForMode( MaterialFogMode_t fogMode );
 	void SceneFogColor3ub( unsigned char r, unsigned char g, unsigned char b );
 	void GetSceneFogColor( unsigned char *rgb );
@@ -1021,6 +1022,9 @@ public:
 	virtual void UnlockRect( ShaderAPITextureHandle_t texHandle, int mipmap );
 
 	virtual void CopyTextureToTexture( ShaderAPITextureHandle_t srcTex, ShaderAPITextureHandle_t dstTex );
+	virtual int VertexFormatSize( VertexFormat_t vertexFormat ) const;
+	virtual void SceneFogRadial( bool bRadial );
+	virtual bool GetSceneFogRadial();
 
 	// Returns the cull mode (for fill rate computation)
 	D3DCULL GetCullMode() const;
@@ -6023,6 +6027,11 @@ int CShaderAPIDx8::GetPixelFogCombo( void )
 		return MATERIAL_FOG_NONE;
 }
 
+int CShaderAPIDx8::GetPixelFogCombo1( bool )
+{
+	return GetPixelFogCombo();
+}
+
 
 static ConVar r_pixelfog( "r_pixelfog", "1" );
 
@@ -9341,6 +9350,19 @@ void CShaderAPIDx8::CopyTextureToTexture( ShaderAPITextureHandle_t srcTex, Shade
 }
 
 
+
+int CShaderAPIDx8::VertexFormatSize( VertexFormat_t vertexFormat ) const
+{
+	return CVertexBufferBase::VertexFormatSize(vertexFormat);
+}
+
+void CShaderAPIDx8::SceneFogRadial( bool bRadial )
+{
+}
+bool CShaderAPIDx8::GetSceneFogRadial()
+{
+	return false;
+}
 
 void CShaderAPIDx8::CopyRenderTargetToTexture( ShaderAPITextureHandle_t textureHandle )
 {

@@ -47,6 +47,7 @@ public:
 
 	// returns a pointer to an existing border
 	virtual IBorder *GetBorder(const char *borderName);
+	virtual IBorder *GetBorder2( const char* borderName );
 
 	// returns a pointer to an existing font
 	virtual HFont GetFont(const char *fontName, bool proportional);
@@ -182,6 +183,7 @@ public:
 	virtual int GetProportionalNormalizedValueEx( HScheme scheme, int scaledValue );
 
 	virtual bool DeleteImage( const char *pImageName );
+	virtual void UpdateBorders();
 
 	// gets the proportional coordinates for doing screen-size independant panel layouts
 	// use these for font, image and panel size scaling (they all use the pixel height of the display for scaling)
@@ -1327,6 +1329,11 @@ bool CSchemeManager::DeleteImage( const char *pImageName )
 	return true;
 }
 
+void CSchemeManager::UpdateBorders()
+{
+
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: returns a pointer to an existing border
 //-----------------------------------------------------------------------------
@@ -1342,6 +1349,14 @@ IBorder *CScheme::GetBorder(const char *borderName)
 	}
 
 	return m_pBaseBorder;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: returns a pointer to an existing border, but why?
+//-----------------------------------------------------------------------------
+IBorder *CScheme::GetBorder2( const char* borderName )
+{
+	return GetBorder(borderName);
 }
 
 //-----------------------------------------------------------------------------
