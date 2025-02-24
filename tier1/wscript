@@ -65,10 +65,12 @@ def build(bld):
 		]
 	else:
 		source += [
-			'pathmatch.cpp',
 			'processor_detect_linux.cpp',
 			'qsort_s.cpp',
 		]
+
+	if bld.env.DEST_OS != 'win32' and bld.env.DEST_OS != 'darwin':
+		source += ['pathmatch.cpp']
 
 	includes = [
 		'.',

@@ -508,7 +508,7 @@ def configure(conf):
 	if conf.options.SANITIZE:
 		flags += ['-fsanitize=%s'%conf.options.SANITIZE, '-fno-sanitize=vptr']
 
-	if conf.env.DEST_OS != 'win32':
+	if conf.env.DEST_OS != 'win32' and conf.env.DEST_OS != 'darwin':
 		flags += ['-pipe', '-fPIC', '-L'+os.path.abspath('.')+'/lib/'+conf.env.DEST_OS+'/'+conf.env.DEST_CPU+'/']
 		flags += ['-Wl,--wrap=fopen', '-Wl,--wrap=freopen', '-Wl,--wrap=open',    '-Wl,--wrap=creat', '-Wl,--wrap=access', '-Wl,--wrap=__xstat',
 		'-Wl,--wrap=stat',  '-Wl,--wrap=stat64',  '-Wl,--wrap=lstat',   '-Wl,--wrap=fopen64',  '-Wl,--wrap=open64',  '-Wl,--wrap=opendir',
