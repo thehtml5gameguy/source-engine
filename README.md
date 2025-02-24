@@ -2,8 +2,9 @@
 [![GitHub Actions Status](https://github.com/nillerusr/source-engine/actions/workflows/build.yml/badge.svg)](https://github.com/nillerusr/source-engine/actions/workflows/build.yml) [![GitHub Actions Status](https://github.com/nillerusr/source-engine/actions/workflows/tests.yml/badge.svg)](https://github.com/nillerusr/source-engine/actions/workflows/tests.yml)
  Discord: [![Discord Server](https://img.shields.io/discord/672055862608658432.svg)](https://discord.gg/hZRB7WMgGw)
  
+## Allows you to run the new source sdk on nillerusr's source-engine.
 
-Allows you to run the new source sdk on nillerusr's source-engine.
+# How to run
 You need to copy or simlink these things from the original sdk:
 - The `libsteam_api.so` blob from Source SDK Base 2013 Multiplayer
 - The `hl2` directory from Source SDK Base 2013 Multiplayer, hl2 from hl2 will not work.
@@ -14,6 +15,7 @@ You also need to rename/symlink a few files:
 - `libServerBrowser.so` to `ServerBrowser.so`
 
 Then edit the gameinfo in your mod_tf directory to use `all_source_engine_paths` instead of `appid_*`.
+##### Build in debug mode, release crashes on class selection for some reason.
 
 Information from [wikipedia](https://wikipedia.org/wiki/Source_(game_engine)):
 
