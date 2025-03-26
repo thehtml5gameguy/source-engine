@@ -57,7 +57,7 @@ JiggleData * CJiggleBones::GetJiggleData( int bone, float currenttime, const Vec
  * Do spring physics calculations and update "jiggle bone" matrix
  * (Michael Booth, Turtle Rock Studios)
  */
-void CJiggleBones::BuildJiggleTransformations( int boneIndex, float currenttime, const mstudiojigglebone_t *jiggleInfo, const matrix3x4_t &goalMX, matrix3x4_t &boneMX )
+void CJiggleBones::BuildJiggleTransformations( int boneIndex, float currenttime, const mstudiojigglebone_t *jiggleInfo, const matrix3x4_t &goalMX, matrix3x4_t &boneMX, bool coordSystemIsFlipped )
 {
 	Vector goalBasePosition;
 	MatrixPosition( goalMX, goalBasePosition );
@@ -78,11 +78,7 @@ void CJiggleBones::BuildJiggleTransformations( int boneIndex, float currenttime,
 
 	// if frames have been skipped since our last update, we were likely
 	// disabled and re-enabled, so re-init
-#if defined(CLIENT_DLL) || defined(GAME_DLL)
-	float timeTolerance = 1.2f * gpGlobals->frametime;
-#else
 	float timeTolerance = 0.5f;
-#endif
 
 	if ( currenttime - data->lastUpdate > timeTolerance )
 	{
@@ -407,7 +403,6 @@ void CJiggleBones::BuildJiggleTransformations( int boneIndex, float currenttime,
 		if ( jiggleInfo->flags & JIGGLE_HAS_ANGLE_CONSTRAINT )
 		{
 			// enforce max angular error
-			Vector error = goalTip - data->tipPos;
 			float dot = DotProduct( forward, goalForward );
 			float angleBetween = acos( dot );
 			if ( dot < 0.0f )
@@ -442,17 +437,20 @@ void CJiggleBones::BuildJiggleTransformations( int boneIndex, float currenttime,
 		//
 		// Build bone matrix to align along current tip direction
 		//
-		Vector left = CrossProduct( goalUp, forward );
-		left.NormalizeInPlace();
-
-		if ( DotProduct( left, data->lastLeft ) < 0.0f )
+		Vector left, up;
+		if ( coordSystemIsFlipped )											  
 		{
-			// The bone has rotated so far its on the other side of the up vector
-			// resulting in the cross product result flipping 180 degrees around the up
-			// vector.  Flip it back.
-			left = -left;
+			// If the coordinate system is flipped, use left handed rules.
+			left = CrossProduct( forward, goalUp );
+			left.NormalizeInPlace();
+			up = CrossProduct( left, forward );
 		}
-		data->lastLeft = left;
+		else									   
+		{
+			left = CrossProduct( goalUp, forward );
+			left.NormalizeInPlace();
+			up = CrossProduct( forward, left );
+		}
 
 #ifdef CLIENT_DLL
 		if ( cl_jiggle_bone_debug.GetBool() )
@@ -463,8 +461,6 @@ void CJiggleBones::BuildJiggleTransformations( int boneIndex, float currenttime,
 			}
 		}
 #endif
-
-		Vector up = CrossProduct( forward, left );
 
 		boneMX[0][0] = left.x;
 		boneMX[1][0] = left.y;

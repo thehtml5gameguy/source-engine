@@ -20,7 +20,8 @@ def build(bld):
 		'mdlutils.cpp',
 		'choreoutils.cpp',
 		'scenetokenprocessor.cpp',
-		'studiohdrstub.cpp'
+		'studiohdrstub.cpp',
+		'../public/jigglebones.cpp'
 	]
 
 	includes = [

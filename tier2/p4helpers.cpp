@@ -77,6 +77,19 @@ bool CP4File::Revert( void )
 	return p4->RevertFile( m_sFilename.String() );
 }
 
+bool CP4File::Delete( void )
+{
+	return true;
+}
+
+P4FileState_t CP4File::GetFileState( void )
+{
+	if ( !p4 )
+		return P4FILE_UNOPENED;
+
+	return p4->GetFileState( m_sFilename.String() );
+}
+
 // Is the file in perforce?
 bool CP4File::IsFileInPerforce()
 {

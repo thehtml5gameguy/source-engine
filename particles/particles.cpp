@@ -3019,6 +3019,11 @@ void CParticleSystemMgr::UncacheAllParticleSystems()
 	FlushAllSheets();
 }
 
+// TODO: Implement
+void CParticleSystemMgr::RecreateDictionary()
+{
+
+}
 
 //-----------------------------------------------------------------------------
 // return the particle field name

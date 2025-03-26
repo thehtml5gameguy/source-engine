@@ -250,18 +250,18 @@ public:
 	float			GetFloat( );
 	double			GetDouble( );
 	void *			GetPtr();
-	void			GetString( char* pString, int nMaxChars );
+	void			GetString( char* pString, size_t nMaxChars );
 	bool			Get( void* pMem, int size );
 	void			GetLine( char* pLine, int nMaxChars );
 
 	void GetStringManualCharCount( char *pString, size_t maxLenInChars )
 	{
-		GetString( pString, maxLenInChars );
+		GetStringInternal( pString, maxLenInChars );
 	}
 
 	template <size_t maxLenInChars> void GetString( char( &pString )[maxLenInChars] )
 	{
-		GetString( pString, maxLenInChars );
+		GetStringInternal( pString, maxLenInChars );
 	}
 
 	// Used for getting objects that have a byteswap datadesc defined
@@ -465,6 +465,7 @@ protected:
 	// Call this to peek arbitrarily long into memory. It doesn't fail unless
 	// it can't read *anything* new
 	bool CheckArbitraryPeekGet( int nOffset, int &nIncrement );
+	void GetStringInternal( char *pString, size_t maxLenInChars );
 
 	template <typename T> void GetType( T& dest );
 	template <typename T> void GetTypeBin( T& dest );
@@ -1056,7 +1057,7 @@ inline void CUtlBuffer::PutObject( T *src )
 			m_Byteswap.SwapFieldsToTargetEndian<T>( (T*)PeekPut(), src );
 		}
 		m_Put += sizeof(T);
-		AddNullTermination( m_Put );
+		AddNullTermination();
 	}
 }
 
@@ -1085,7 +1086,7 @@ inline void CUtlBuffer::PutTypeBin( T src )
 			m_Byteswap.SwapBufferToTargetEndian<T>( (T*)PeekPut(), &src );
 		}
 		m_Put += sizeof(T);
-		AddNullTermination( m_Put );
+		AddNullTermination();
 	}
 }
 
@@ -1120,7 +1121,7 @@ inline void CUtlBuffer::PutTypeBin< float >( float src )
 		}
 
 		m_Put += sizeof(float);
-		AddNullTermination( m_Put );
+		AddNullTermination();
 	}
 }
 
@@ -1158,7 +1159,7 @@ inline void CUtlBuffer::PutTypeBin< double >( double src )
 		}
 
 		m_Put += sizeof(double);
-		AddNullTermination( m_Put );
+		AddNullTermination();
 	}
 }
 #endif
@@ -1388,7 +1389,7 @@ inline void CUtlBuffer::Clear()
 	m_Error = 0;
 	m_nOffset = 0;
 	m_nMaxPut = -1;
-	AddNullTermination( m_Put );
+	AddNullTermination();
 }
 
 inline void CUtlBuffer::Purge()

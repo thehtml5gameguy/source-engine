@@ -893,6 +893,20 @@ CMDL *CMDLPanel::GetMergeMDL( MDLHandle_t handle )
 	return NULL;
 }
 
+
+CStudioHdr *CMDLPanel::GetMergeMDLStudioHdr( MDLHandle_t handle )
+{
+	int nMergeCount = m_aMergeMDLs.Count();
+	for ( int iMerge = 0; iMerge < nMergeCount; ++iMerge )
+	{
+		if ( m_aMergeMDLs[iMerge].m_MDL.GetMDL() == handle )
+			return (m_aMergeMDLs[iMerge].m_pStudioHdr);
+	}
+
+	return NULL;
+}
+
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------

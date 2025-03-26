@@ -17,6 +17,7 @@ $Project "tier3"
 		$File	"choreoutils.cpp"
 		$File	"scenetokenprocessor.cpp"
 		$File	"studiohdrstub.cpp"
+		$File	"$SRCDIR\public\jigglebones.cpp"
 	}
 
 	$Folder	"Header Files"

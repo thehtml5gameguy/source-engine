@@ -717,7 +717,7 @@ int CUtlBuffer::PeekDelimitedStringLength( CUtlCharConversion *pConv, bool bActu
 //-----------------------------------------------------------------------------
 // Reads a null-terminated string
 //-----------------------------------------------------------------------------
-void CUtlBuffer::GetString( char* pString, int nMaxChars )
+void CUtlBuffer::GetString( char* pString, size_t nMaxChars )
 {
 	if (!IsValid())
 	{
@@ -747,14 +747,14 @@ void CUtlBuffer::GetString( char* pString, int nMaxChars )
 		return;
 	}
 
-	const int nCharsToRead = Min( nLen, nMaxChars ) - 1;
+	const size_t nCharsToRead = Min( (size_t)nLen, nMaxChars ) - 1;
 	
-	Get( pString, nCharsToRead );
+	Get( pString, (int)nCharsToRead );
 	pString[ nCharsToRead ] = 0;
 
 	if ( nLen > ( nCharsToRead + 1 ) )
 	{
-		SeekGet( SEEK_CURRENT, nLen - ( nCharsToRead + 1 ) );
+		SeekGet( SEEK_CURRENT, (int)( nLen - ( nCharsToRead + 1 ) ) );
 	}
 
 	// Read the terminating NULL in binary formats
@@ -762,6 +762,11 @@ void CUtlBuffer::GetString( char* pString, int nMaxChars )
 	{
 		VerifyEquals( GetChar(), 0 );
 	}
+}
+
+void CUtlBuffer::GetStringInternal( char* pString, size_t nMaxChars )
+{
+	GetString(pString, nMaxChars);
 }
 
 
