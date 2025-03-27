@@ -87,14 +87,14 @@ CMDLPanel::CMDLPanel( vgui::Panel *pParent, const char *pName ) : BaseClass( pPa
 
 CMDLPanel::~CMDLPanel()
 {
-	if( m_RootMDL.m_pStudioHdr != NULL )
+	ClearMergeMDLs();
+	m_DefaultEnvCubemap.Shutdown( );
+	m_DefaultHDREnvCubemap.Shutdown();
+	if ( m_RootMDL.m_pStudioHdr )
 	{
 		delete m_RootMDL.m_pStudioHdr;
 		m_RootMDL.m_pStudioHdr = NULL;
 	}
-	m_aMergeMDLs.Purge();
-	m_DefaultEnvCubemap.Shutdown( );
-	m_DefaultHDREnvCubemap.Shutdown();
 }
 
 
@@ -153,15 +153,12 @@ void CMDLPanel::SetThumbnailSafeZone( bool bVisible )
 void CMDLPanel::SetMDL( MDLHandle_t handle, void *pProxyData )
 {
 	m_RootMDL.m_MDL.SetMDL( handle );
-	m_RootMDL.m_MDL.m_pProxyData = pProxyData;
-
-	if( m_RootMDL.m_pStudioHdr != NULL )
+	if ( m_RootMDL.m_pStudioHdr )
 	{
 		delete m_RootMDL.m_pStudioHdr;
 	}
-
-	m_RootMDL.m_pStudioHdr = new CStudioHdr( g_pMDLCache->GetStudioHdr( m_RootMDL.m_MDL.GetMDL() ), g_pMDLCache );
-
+	m_RootMDL.m_pStudioHdr = new CStudioHdr( m_RootMDL.m_MDL.GetStudioHdr(), g_pMDLCache );
+	m_RootMDL.m_MDL.m_pProxyData = pProxyData;
 
 	Vector vecMins, vecMaxs;
 	GetMDLBoundingBox( &vecMins, &vecMaxs, handle, m_RootMDL.m_MDL.m_nSequence );
@@ -324,15 +321,20 @@ void CMDLPanel::UpdateStudioRenderConfig( void )
 
 void CMDLPanel::DrawCollisionModel()
 {
+	if ( m_RootMDL.m_MDL.GetMDL() == MDLHANDLE_INVALID )
+	{
+		return;
+	}
+
 	vcollide_t *pCollide = MDLCache()->GetVCollide( m_RootMDL.m_MDL.GetMDL() );
 
 	if ( !pCollide || pCollide->solidCount <= 0 )
 		return;
-	
+
 	static color32 color = {255,0,0,0};
 
 	IVPhysicsKeyParser *pParser = g_pPhysicsCollision->VPhysicsKeyParserCreate( pCollide->pKeyValues );
-	CStudioHdr* studioHdr = m_RootMDL.m_pStudioHdr;
+	CStudioHdr *studioHdr = m_RootMDL.m_pStudioHdr;
 
 	matrix3x4_t pBoneToWorld[MAXSTUDIOBONES];
 	m_RootMDL.m_MDL.SetUpBones( m_RootMDL.m_MDLToWorld, MAXSTUDIOBONES, pBoneToWorld );
@@ -415,9 +417,6 @@ void CMDLPanel::OnPaint3D()
 	if ( m_RootMDL.m_MDL.GetMDL() == MDLHANDLE_INVALID )
 		return;
 
-	// Draw the MDL
-	CStudioHdr* studioHdr = m_RootMDL.m_pStudioHdr;
-
 	// FIXME: Move this call into DrawModel in StudioRender
 	StudioRenderConfig_t oldStudioRenderConfig;
 	StudioRender()->GetCurrentConfig( oldStudioRenderConfig );
@@ -454,6 +453,9 @@ void CMDLPanel::OnPaint3D()
 		m_RootMDL.m_MDL.m_vecViewTarget = vecPosition;
 	}
 
+	// Draw the MDL
+	CStudioHdr *studioHdr = m_RootMDL.m_pStudioHdr;
+
 	SetupFlexWeights();
 
 	matrix3x4_t *pBoneToWorld = g_pStudioRender->LockBoneMatrices( studioHdr->numbones() );
@@ -480,15 +482,14 @@ void CMDLPanel::OnPaint3D()
 			continue;
 
 		// Get the merge studio header.
-		studiohdr_t *pStudioHdr = g_pMDLCache->GetStudioHdr( m_aMergeMDLs[iMerge].m_MDL.GetMDL() );
+		CStudioHdr *mergeHdr = m_aMergeMDLs[iMerge].m_pStudioHdr;
 		matrix3x4_t *pMergeBoneToWorld = &matMergeBoneToWorld[0];
 
 		// If we have a valid mesh, bonemerge it. If we have an invalid mesh we can't bonemerge because
 		// it'll crash trying to pull data from the missing header.
-		if ( pStudioHdr != NULL )
+		if ( mergeHdr != NULL )
 		{
-			CStudioHdr mergeHdr( pStudioHdr, g_pMDLCache );
-			m_aMergeMDLs[iMerge].m_MDL.SetupBonesWithBoneMerge( &mergeHdr, pMergeBoneToWorld, studioHdr, pBoneToWorld, m_RootMDL.m_MDLToWorld );		
+			m_aMergeMDLs[iMerge].m_MDL.SetupBonesWithBoneMerge( mergeHdr, pMergeBoneToWorld, studioHdr, pBoneToWorld, m_RootMDL.m_MDLToWorld );		
 
 			pOverrideMaterial = GetOverrideMaterial( m_aMergeMDLs[iMerge].m_MDL.GetMDL() );
 			if ( pOverrideMaterial != NULL ) 
@@ -500,7 +501,7 @@ void CMDLPanel::OnPaint3D()
 				g_pStudioRender->ForcedMaterialOverride( NULL );
 
 			// Notify of model render
-			RenderingMergedModel( pRenderContext, &mergeHdr, m_aMergeMDLs[iMerge].m_MDL.GetMDL(), pMergeBoneToWorld );
+			RenderingMergedModel( pRenderContext, mergeHdr, m_aMergeMDLs[iMerge].m_MDL.GetMDL(), pMergeBoneToWorld );
 		}
 	}
 
@@ -563,7 +564,8 @@ void CMDLPanel::SetPoseParameters( const float *pPoseParameters, int nCount )
 	}
 	else if ( m_RootMDL.m_MDL.GetMDL() != MDLHANDLE_INVALID )
 	{
-		Studio_CalcDefaultPoseParameters( m_RootMDL.m_pStudioHdr, m_PoseParameters, MAXSTUDIOPOSEPARAM );
+		CStudioHdr *studioHdr = m_RootMDL.m_pStudioHdr;
+		Studio_CalcDefaultPoseParameters( studioHdr, m_PoseParameters, MAXSTUDIOPOSEPARAM );
 	}
 }
 
@@ -573,11 +575,11 @@ void CMDLPanel::SetPoseParameters( const float *pPoseParameters, int nCount )
 //-----------------------------------------------------------------------------
 bool CMDLPanel::SetPoseParameterByName( const char *pszName, float fValue )
 {
-	CStudioHdr* studioHdr = m_RootMDL.m_pStudioHdr;
-	if(studioHdr == NULL)
+	if ( m_RootMDL.m_MDL.GetMDL() == MDLHANDLE_INVALID )
 	{
 		return false;
 	}
+	CStudioHdr *studioHdr = m_RootMDL.m_pStudioHdr;
 
 	int nPoseCount = studioHdr->GetNumPoseParameters();
 
@@ -639,17 +641,6 @@ void CMDLPanel::OnTick()
 	}
 }
 
-void CMDLPanel::ValidateMDLs()
-{
-	uint32_t cacheSerial = vgui::ivgui()->GetMdlCacheSerial();
-	if(m_RootMDL.m_pStudioHdr != NULL && m_RootMDL.m_unMdlCacheSerial != cacheSerial)
-	{
-		m_RootMDL.m_pStudioHdr = new CStudioHdr( g_pMDLCache->GetStudioHdr( m_RootMDL.m_MDL.GetMDL() ), g_pMDLCache );;
-		m_RootMDL.m_unMdlCacheSerial = cacheSerial;
-	}
-
-}
-
 void CMDLPanel::Paint()
 {
 	BaseClass::Paint();
@@ -699,16 +690,16 @@ void CMDLPanel::Paint()
 //-----------------------------------------------------------------------------
 void CMDLPanel::DoAnimationEvents()
 {
-	CStudioHdr* studioHdr = m_RootMDL.m_pStudioHdr;
-	if(studioHdr == NULL)
+	if ( m_RootMDL.m_MDL.GetMDL() == MDLHANDLE_INVALID )
 	{
 		return;
 	}
+	CStudioHdr *studioHdr = m_RootMDL.m_pStudioHdr;
 
 	// If we don't have any sequences, don't do anything
 	if ( studioHdr->GetNumSeq() < 1 )
 	{
-		Assert( studioHdr.GetNumSeq() >= 1 );
+		Assert( studioHdr->GetNumSeq() >= 1 );
 		return;
 	}
 
@@ -858,6 +849,8 @@ void CMDLPanel::SetMergeMDL( MDLHandle_t handle, void *pProxyData, int nSkin /*=
 
 	m_aMergeMDLs[iIndex].m_bDisabled = false;
 
+	m_aMergeMDLs[iIndex].m_pStudioHdr = new CStudioHdr( m_aMergeMDLs[iIndex].m_MDL.GetStudioHdr(), g_pMDLCache );
+
 	// Need to invalidate the layout so the panel will adjust is LookAt for the new model.
 	InvalidateLayout();
 }
@@ -948,5 +941,37 @@ CStudioHdr *CMDLPanel::GetMergeMDLStudioHdr( MDLHandle_t handle )
 //-----------------------------------------------------------------------------
 void CMDLPanel::ClearMergeMDLs( void )
 {
+	const int nMergeCount = m_aMergeMDLs.Count();
+	for ( int iMerge = 0; iMerge < nMergeCount; ++iMerge )
+	{
+		if ( !m_aMergeMDLs[iMerge].m_pStudioHdr )
+		{
+			continue;
+		}
+		delete m_aMergeMDLs[iMerge].m_pStudioHdr;
+		m_aMergeMDLs[iMerge].m_pStudioHdr = NULL;
+	}
 	m_aMergeMDLs.Purge();
+}
+
+void CMDLPanel::ValidateMDLs()
+{
+	uint32 iMdlCacheTick = vgui::ivgui()->GetMdlCacheSerial();
+
+	if ( m_RootMDL.m_pStudioHdr && m_RootMDL.m_unMdlCacheSerial < iMdlCacheTick )
+	{
+		m_RootMDL.m_pStudioHdr = new CStudioHdr( m_RootMDL.m_MDL.GetStudioHdr(), g_pMDLCache );
+		m_RootMDL.m_unMdlCacheSerial = iMdlCacheTick;
+	}
+
+	const int nMergeCount = m_aMergeMDLs.Count();
+	for ( int iMerge = 0; iMerge < nMergeCount; ++iMerge )
+	{
+		if ( !m_aMergeMDLs[iMerge].m_pStudioHdr || m_aMergeMDLs[iMerge].m_unMdlCacheSerial >= iMdlCacheTick )
+		{
+			continue;
+		}
+		m_aMergeMDLs[iMerge].m_pStudioHdr = new CStudioHdr( m_aMergeMDLs[iMerge].m_MDL.GetStudioHdr(), g_pMDLCache );
+		m_aMergeMDLs[iMerge].m_unMdlCacheSerial = iMdlCacheTick;
+	}
 }
