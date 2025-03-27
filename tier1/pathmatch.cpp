@@ -57,7 +57,6 @@
 #include <string>
 #include <time.h>
 
-
 // Enable to do pathmatch caching. Beware: this code isn't threadsafe.
 // #define DO_PATHMATCH_CACHE
 
@@ -651,6 +650,11 @@ PathMod_t pathmatch( const char *pszIn, char **ppszOut, bool bAllowBasenameMisma
 #endif
 	}
 	return kPathFailed;
+}
+
+bool pathmatch_external( const char *pszIn, char **ppszOut, bool bAllowBasenameMismatch, char *pszOutBuf, size_t OutBufLen )
+{
+	return pathmatch( pszIn, ppszOut, bAllowBasenameMismatch, pszOutBuf, OutBufLen ) != kPathFailed;
 }
 
 // Wrapper object that manages the 'typical' usage cases of pathmatch()

@@ -76,6 +76,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <stdarg.h>
 #endif
 
 #ifdef OSX
@@ -1486,6 +1487,36 @@ inline const char *GetPlatformExt( void )
 #if defined( _X360 )
 #include "xbox/xbox_core.h"
 #endif
+
+//-----------------------------------------------------------------------------
+// There is no requirement that a va_list be usable in multiple calls,
+// but the Steam code does this.  Linux64 does not support reuse, whereas
+// Windows does, so Linux64 breaks on code that was written and working
+// on Windows.  Fortunately Linux has va_copy, which provides a simple
+// way to let a va_list be used multiple times.  Unfortunately Windows
+// does not have va_copy, so here we provide things to hide the difference.
+//-----------------------------------------------------------------------------
+
+class CReuseVaList
+{
+public:
+    CReuseVaList( va_list List )
+    {
+		#ifdef POSIX
+        va_copy( m_ReuseList, List );
+#else
+        m_ReuseList = List;
+#endif
+    }
+    ~CReuseVaList()
+    {
+#ifdef POSIX
+        va_end( m_ReuseList );
+#endif
+    }
+
+    va_list m_ReuseList;
+};
 
 //-----------------------------------------------------------------------------
 // Methods to invoke the constructor, copy constructor, and destructor

@@ -19,6 +19,7 @@
 #include "eiface.h"
 #include "server.h"
 #include "utlmap.h"
+#include "tier1/utlbuffer.h"
 
 extern ConVar sv_tags;
 extern ConVar sv_lan;

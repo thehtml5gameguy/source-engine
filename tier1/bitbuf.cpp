@@ -110,11 +110,11 @@ public:
 
 		for ( unsigned int maskBit=0; maskBit < 32; maskBit++ )
 			g_ExtraMasks[maskBit] = BitForBitnum(maskBit) - 1;
-		g_ExtraMasks[32] = ~0u;
+		g_ExtraMasks[32] = static_cast<uint32>(~0u);
 
 		for ( unsigned int littleBit=0; littleBit < 32; littleBit++ )
 			StoreLittleDWord( &g_LittleBits[littleBit], 0, 1u<<littleBit );
-	}                     
+	}
 };
 static CBitWriteMasksInit g_BitWriteMasksInit;
 
@@ -187,7 +187,7 @@ void bf_write::SetAssertOnOverflow( bool bAssert )
 }
 
 
-const char* bf_write::GetDebugName()
+const char* bf_write::GetDebugName() RESTRICT
 {
 	return m_pDebugName;
 }
@@ -486,16 +486,16 @@ bool bf_write::WriteBits(const void *pInData, int nBits)
 	if ( IsPC() && nBitsLeft >= 32 )
 	{
 		uint32 iBitsRight = (m_iCurBit & 31);
-        uint32 iBitsLeft = 32 - iBitsRight;
-        uint32 bitMaskLeft = g_BitWriteMasks[iBitsRight][32];
-        uint32 bitMaskRight = g_BitWriteMasks[0][iBitsRight];
+		uint32 iBitsLeft = 32 - iBitsRight;
+		uint32 bitMaskLeft = g_BitWriteMasks[iBitsRight][32];
+		uint32 bitMaskRight = g_BitWriteMasks[0][iBitsRight];
 
-        uint32 *pData = &m_pData[m_iCurBit>>5];
+		uint32 *pData = &m_pData[m_iCurBit>>5];
 
 		// Read dwords.
 		while(nBitsLeft >= 32)
 		{
-            uint32 curData = *(uint32*)pOut;
+			uint32 curData = *(uint32*)pOut;
 			pOut += sizeof(uint32);
 
 			*pData &= bitMaskLeft;
@@ -938,7 +938,7 @@ int bf_read::ReadBitsClamped_ptr(void *pOutData, size_t outSizeBytes, size_t nBi
 		//	return 0;
 	}
 
-	ReadBits( pOutData, readSizeBits );
+	ReadBits( pOutData, (int)readSizeBits );
 	SeekRelative( skippedBits );
 
 	// Return the number of bits actually read.
@@ -1462,10 +1462,10 @@ int bf_read::CompareBitsAt( int offset, bf_read * RESTRICT other, int otherOffse
 
 	unsigned int iStartBit1 = offset & 31u;
 	unsigned int iStartBit2 = otherOffset & 31u;
-    uint32 *pData1 = (uint32*)m_pData + (offset >> 5);
-    uint32 *pData2 = (uint32*)other->m_pData + (otherOffset >> 5);
-    uint32 *pData1End = pData1 + ((offset + numbits - 1) >> 5);
-    uint32 *pData2End = pData2 + ((otherOffset + numbits - 1) >> 5);
+	uint32 *pData1 = (uint32*)m_pData + (offset >> 5);
+	uint32 *pData2 = (uint32*)other->m_pData + (otherOffset >> 5);
+	uint32 *pData1End = pData1 + ((offset + numbits - 1) >> 5);
+	uint32 *pData2End = pData2 + ((otherOffset + numbits - 1) >> 5);
 
 	while ( numbits > 32 )
 	{

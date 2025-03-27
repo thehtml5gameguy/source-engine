@@ -263,13 +263,14 @@ public:
 
 	void AddSubkeyUsingKnownLastChild( KeyValues *pSubKey, KeyValues *pLastChild );
 
+	KeyValues* CreateKey( const char *keyName );
+
 private:
 	KeyValues( KeyValues& );	// prevent copy constructor being used
 
 	// prevent delete being called except through deleteThis()
 	~KeyValues();
 
-	KeyValues* CreateKey( const char *keyName );
 
 	/// Create a child key, given that we know which child is currently the last child.
 	/// This avoids the O(N^2) behaviour when adding children in sequence to KV,
@@ -428,7 +429,7 @@ inline bool  KeyValues::IsEmpty( int keySymbol )
 	return dat ? dat->IsEmpty( ) : true;
 }
 
-bool IsSteamDeck();
+bool IsSteamDeck( bool bTrulyHardwareOnly = false );
 
 bool EvaluateConditional( const char *str );
 

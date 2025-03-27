@@ -1,4 +1,4 @@
-//===== Copyright (c) 1996-2005, Valve Corporation, All rights reserved. ======//
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -17,9 +17,9 @@
 #include "tier0/dbg.h"
 #include <string.h>
 #include "tier0/platform.h"
+#include "mathlib/mathlib.h"
 
 #include "tier0/memalloc.h"
-#include "mathlib/mathlib.h"
 #include "tier0/memdbgon.h"
 
 #pragma warning (disable:4100)
@@ -30,8 +30,8 @@
 
 
 #ifdef UTLMEMORY_TRACK
-#define UTLMEMORY_TRACK_ALLOC()		MemAlloc_RegisterAllocation( "||Sum of all UtlMemory||", 0, m_nAllocationCount * sizeof(T), m_nAllocationCount * sizeof(T), 0 )
-#define UTLMEMORY_TRACK_FREE()		if ( !m_pMemory ) ; else MemAlloc_RegisterDeallocation( "||Sum of all UtlMemory||", 0, m_nAllocationCount * sizeof(T), m_nAllocationCount * sizeof(T), 0 )
+#define UTLMEMORY_TRACK_ALLOC()		MemAlloc_RegisterAllocation( "Sum of all UtlMemory", 0, m_nAllocationCount * sizeof(T), m_nAllocationCount * sizeof(T), 0 )
+#define UTLMEMORY_TRACK_FREE()		if ( !m_pMemory ) ; else MemAlloc_RegisterDeallocation( "Sum of all UtlMemory", 0, m_nAllocationCount * sizeof(T), m_nAllocationCount * sizeof(T), 0 )
 #else
 #define UTLMEMORY_TRACK_ALLOC()		((void)0)
 #define UTLMEMORY_TRACK_FREE()		((void)0)
@@ -45,20 +45,14 @@
 template< class T, class I = int >
 class CUtlMemory
 {
-	template< class A, class B> friend class CUtlVector;
-	template< class A, size_t B> friend class CUtlVectorFixedGrowableCompat;
+	template< class A, class B > friend class CUtlVector;
+	template< class A, size_t B > friend class CUtlVectorFixedGrowableCompat;
 public:
 	// constructor, destructor
 	CUtlMemory( int nGrowSize = 0, int nInitSize = 0 );
 	CUtlMemory( T* pMemory, int numElements );
 	CUtlMemory( const T* pMemory, int numElements );
 	~CUtlMemory();
-
-	CUtlMemory( const CUtlMemory& ) = delete;
-	CUtlMemory& operator=( const CUtlMemory& ) = delete;
-
-	CUtlMemory( CUtlMemory&& moveFrom );
-	CUtlMemory& operator=( CUtlMemory&& moveFrom );
 
 	// Set the size by which the memory grows
 	void Init( int nGrowSize = 0, int nInitSize = 0 );
@@ -99,9 +93,10 @@ public:
 	// Attaches the buffer to external memory....
 	void SetExternalBuffer( T* pMemory, int numElements );
 	void SetExternalBuffer( const T* pMemory, int numElements );
+	// Takes ownership of the passed memory, including freeing it when this buffer is destroyed.
 	void AssumeMemory( T *pMemory, int nSize );
 	T* Detach();
-	void *DetachMemory();
+	void* DetachMemory();
 
 	// Fast swap
 	void Swap( CUtlMemory< T, I > &mem );
@@ -446,44 +441,6 @@ template< class T, class I >
 CUtlMemory<T,I>::~CUtlMemory()
 {
 	Purge();
-
-#ifdef _DEBUG
-	m_pMemory = reinterpret_cast< T* >( 0xFEFEBAAD );
-	m_nAllocationCount = 0x7BADF00D;
-#endif
-}
-
-template< class T, class I >
-CUtlMemory<T,I>::CUtlMemory( CUtlMemory&& moveFrom )
-: m_pMemory(moveFrom.m_pMemory)
-, m_nAllocationCount(moveFrom.m_nAllocationCount)
-, m_nGrowSize(moveFrom.m_nGrowSize)
-{
-	moveFrom.m_pMemory = nullptr;
-	moveFrom.m_nAllocationCount = 0;
-	moveFrom.m_nGrowSize = 0;
-}
-
-template< class T, class I >
-CUtlMemory<T,I>& CUtlMemory<T,I>::operator=( CUtlMemory&& moveFrom )
-{
-	// Copy member variables to locals before purge to handle self-assignment
-	T* pMemory = moveFrom.m_pMemory;
-	int nAllocationCount = moveFrom.m_nAllocationCount;
-	int nGrowSize = moveFrom.m_nGrowSize;
-
-	moveFrom.m_pMemory = nullptr;
-	moveFrom.m_nAllocationCount = 0;
-	moveFrom.m_nGrowSize = 0;
-
-	// If this is a self-assignment, Purge() is a no-op here
-	Purge();
-
-	m_pMemory = pMemory;
-	m_nAllocationCount = nAllocationCount;
-	m_nGrowSize = nGrowSize;
-
-	return *this;
 }
 
 template< class T, class I >

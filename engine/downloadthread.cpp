@@ -539,48 +539,6 @@ static size_t curlWriteFn( void *ptr, size_t size, size_t nmemb, void *stream)
 	return size * nmemb;
 }
 
-
-int Q_StrTrim( char *pStr )
-{
-	char *pSource = pStr;
-	char *pDest = pStr;
-	
-	// skip white space at the beginning
-	while ( *pSource != 0 && isspace( *pSource ) )
-	{
-		pSource++;
-	}
-	
-	// copy everything else
-	char *pLastWhiteBlock = NULL;
-	char *pStart = pDest;
-	while ( *pSource != 0 )
-	{
-		*pDest = *pSource++;
-		if ( isspace( *pDest ) )
-		{
-			if ( pLastWhiteBlock == NULL )
-				pLastWhiteBlock = pDest;
-		}
-		else
-		{
-			pLastWhiteBlock = NULL;
-		}
-		pDest++;
-	}
-	*pDest = 0;
-	
-	// did we end in a whitespace block?
-	if ( pLastWhiteBlock != NULL )
-	{
-		// yep; shorten the string
-		pDest = pLastWhiteBlock;
-		*pLastWhiteBlock = 0;
-	}
-	
-	return pDest - pStart;
-}
-
 static size_t curlHeaderFn( void *ptr, size_t size, size_t nmemb, void *stream)
 {
 	char *pszHeader = (char*)ptr;

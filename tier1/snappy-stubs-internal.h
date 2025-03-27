@@ -100,8 +100,10 @@ static const int64 kint64max = static_cast<int64>(0x7FFFFFFFFFFFFFFFLL);
 
 // x86 and PowerPC can simply do these loads and stores native.
 
-// fuck this shit
-#if 0 // defined(__i386__) || defined(__x86_64__) || defined(__powerpc__)
+// misyl: This used to be enabled, but this gets miscompiled
+// on modern GCC due to alignment assumptions (ie. alignof(uint64), etc)
+
+#if 0//defined(__i386__) || defined(__x86_64__) || defined(__powerpc__)
 
 #define UNALIGNED_LOAD16(_p) (*reinterpret_cast<const uint16 *>(_p))
 #define UNALIGNED_LOAD32(_p) (*reinterpret_cast<const uint32 *>(_p))

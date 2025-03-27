@@ -1,4 +1,4 @@
-//========= Copyright © 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -16,7 +16,7 @@
 
 FORWARD_DECLARE_HANDLE( memhandle_t );
 
-#define INVALID_MEMHANDLE ((memhandle_t)0xffffffff)
+#define INVALID_MEMHANDLE ((memhandle_t)(intp)-1)
 
 class CDataManagerBase
 {
@@ -65,8 +65,6 @@ public:
 
 	// -----------------------------------------------------------------------------
 
-	void					SetFreeOnDestruct( bool value ) { m_freeOnDestruct = value; }
-
 	// Debugging only!!!!
 	void					GetLRUHandleList( CUtlVector< memhandle_t >& list );
 	void					GetLockHandleList( CUtlVector< memhandle_t >& list );
@@ -79,7 +77,6 @@ protected:
 	void					*GetResource_NoLock( memhandle_t handle );
 	void					*GetResource_NoLockNoLRUTouch( memhandle_t handle );
 	void					*LockResource( memhandle_t handle );
-	void					*LockResourceReturnCount( int *pCount, memhandle_t handle );
 
 	// NOTE: you must call this from the destructor of the derived class! (will assert otherwise)
 	void					FreeAllLists()	{ FlushAll(); m_listsAreFreed = true; }
@@ -126,8 +123,7 @@ protected:
 	unsigned short m_lockList;
 	unsigned short m_freeList;
 	unsigned short m_listsAreFreed : 1;
-	unsigned short m_freeOnDestruct : 1;
-	unsigned short m_unused : 14;
+	unsigned short m_unused : 15;
 
 };
 
@@ -137,33 +133,19 @@ class CDataManager : public CDataManagerBase
 	typedef CDataManagerBase BaseClass;
 public:
 
-	CDataManager<STORAGE_TYPE, CREATE_PARAMS, LOCK_TYPE, MUTEX_TYPE>( unsigned int size = (unsigned)-1 ) : BaseClass(size) {}
+	CDataManager( unsigned int size = (unsigned)-1 ) : BaseClass(size) {}
 	
 
-	~CDataManager<STORAGE_TYPE, CREATE_PARAMS, LOCK_TYPE, MUTEX_TYPE>()
+	~CDataManager()
 	{
 		// NOTE: This must be called in all implementations of CDataManager
-		if ( m_freeOnDestruct )
-		{
-			FreeAllLists();
-		}
+		FreeAllLists();
 	}
 
 	// Use GetData() to translate pointer to LOCK_TYPE
 	LOCK_TYPE LockResource( memhandle_t hMem )
 	{
 		void *pLock = BaseClass::LockResource( hMem );
-		if ( pLock )
-		{
-			return StoragePointer(pLock)->GetData();
-		}
-
-		return NULL;
-	}
-
-	LOCK_TYPE LockResourceReturnCount( int *pCount, memhandle_t hMem )
-	{
-		void *pLock = BaseClass::LockResourceReturnCount( pCount, hMem );
 		if ( pLock )
 		{
 			return StoragePointer(pLock)->GetData();
@@ -198,11 +180,10 @@ public:
 	// Wrapper to match implementation of allocation with typed storage & alloc params.
 	memhandle_t CreateResource( const CREATE_PARAMS &createParams, bool bCreateLocked = false )
 	{
-		BaseClass::EnsureCapacity(STORAGE_TYPE::EstimatedSize(createParams));
-		STORAGE_TYPE *pStore = STORAGE_TYPE::CreateResource( createParams );
-		AUTO_LOCK_( CDataManagerBase, *this );
+		BaseClass::EnsureCapacity((unsigned int)STORAGE_TYPE::EstimatedSize(createParams));
 		unsigned short memoryIndex = BaseClass::CreateHandle( bCreateLocked );
-		return BaseClass::StoreResourceInHandle( memoryIndex, pStore, pStore->Size() );
+		STORAGE_TYPE *pStore = STORAGE_TYPE::CreateResource( createParams );
+		return BaseClass::StoreResourceInHandle( memoryIndex, pStore, (unsigned int) pStore->Size() );
 	}
 
 	// Iteration. Must lock first
@@ -260,7 +241,7 @@ private:
 	
 	virtual unsigned int GetRealSize( void *pStore )
 	{
-		return StoragePointer(pStore)->Size();
+		return (unsigned int) StoragePointer(pStore)->Size();
 	}
 
 	MUTEX_TYPE m_mutex;

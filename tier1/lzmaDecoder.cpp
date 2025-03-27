@@ -160,7 +160,13 @@ unsigned int CLZMA::Uncompress( unsigned char *pInput, unsigned char *pOutput )
 		return 0;
 	}
 
-	return outProcessed;
+	if ( outProcessed >= UINT_MAX )
+	{
+		Warning( "LZMA Decompression overflowed (%zu > %zu)\n", outProcessed, (size_t)UINT_MAX );
+		return 0;
+	}
+
+	return (int)outProcessed;
 }
 
 CLZMAStream::CLZMAStream()
@@ -285,8 +291,16 @@ bool CLZMAStream::Read( unsigned char *pInput, unsigned int nMaxInputBytes,
 		return false;
 	}
 
-	nCompressedBytesRead += inSize;
-	nOutputBytesWritten += outSize;
+	size_t zuNewCompressedBytesRead = ( size_t )nCompressedBytesRead + inSize;
+	size_t zuNewOutputBytesWritten  = ( size_t )nOutputBytesWritten + outSize;
+	if ( zuNewCompressedBytesRead >= UINT_MAX || zuNewOutputBytesWritten >= UINT_MAX )
+	{
+		Warning( "LZMA Decompression overflowed (read: %zu > %zu or write: %zu > %zu)\n", zuNewCompressedBytesRead, ( size_t )UINT_MAX, zuNewOutputBytesWritten, (size_t) UINT_MAX );
+		return false;
+	}
+
+	nCompressedBytesRead += (int)inSize;
+	nOutputBytesWritten += (int)outSize;
 
 	m_nCompressedBytesRead += nCompressedBytesRead;
 	m_nActualBytesRead += nOutputBytesWritten;

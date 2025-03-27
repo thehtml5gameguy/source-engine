@@ -993,16 +993,15 @@ KeyValues *KeyValues::FindKey(const char *keyName, bool bCreate)
 		return this;
 
 	// look for '/' characters deliminating sub fields
-	char szBuf[256];
+	char szBuf[256] = { 0 };
 	const char *subStr = strchr(keyName, '/');
 	const char *searchStr = keyName;
 
 	// pull out the substring if it exists
 	if (subStr)
 	{
-		int size = subStr - keyName;
-		Q_memcpy( szBuf, keyName, size );
-		szBuf[size] = 0;
+		int size = Min( (int)(subStr - keyName + 1), (int)V_ARRAYSIZE( szBuf ) );
+		V_strncpy( szBuf, keyName, size );
 		searchStr = szBuf;
 	}
 
@@ -1338,8 +1337,9 @@ uint64 KeyValues::GetUint64( const char *keyName, uint64 defaultValue )
 			return (int)dat->m_flValue;
 		case TYPE_UINT64:
 			return *((uint64 *)dat->m_sValue);
-		case TYPE_INT:
 		case TYPE_PTR:
+			return (uint64)(uintp)dat->m_pValue;
+		case TYPE_INT:
 		default:
 			return dat->m_iValue;
 		};
@@ -1528,12 +1528,17 @@ bool KeyValues::GetBool( const char *keyName, bool defaultValue, bool* optGotDef
 	if ( FindKey( keyName ) )
     {
         if ( optGotDefault )
-            (*optGotDefault) = false;
+		{
+            *optGotDefault = false;
+		}
+
 		return 0 != GetInt( keyName, 0 );
     }
     
     if ( optGotDefault )
-        (*optGotDefault) = true;
+	{
+        *optGotDefault = true;
+	}
 
 	return defaultValue;
 }
@@ -2179,32 +2184,36 @@ void KeyValues::RecursiveMergeKeyValues( KeyValues *baseKV )
 	}
 }
 
-static int s_nSteamDeckCached = -1;
-
-bool IsSteamDeck()
+bool IsSteamDeck( bool bTrulyHardwareOnly )
 {
-	if (s_nSteamDeckCached == -1) {
-		if ( CommandLine()->CheckParm( "-nogamepadui" ) != 0 )
-		{
-			s_nSteamDeckCached = 0;
-		}
+	static int s_nSteamDeckCached = -1;
+	static int s_nGamepadUICached = -1;
+
+	if ( s_nGamepadUICached == -1 || s_nSteamDeckCached == -1 )
+	{
+		bool bIsDeck = false;
+		bool bIsGamepadUI = false;
+
+		if ( CommandLine()->CheckParm( "-nogamepadui" ) )
+			bIsGamepadUI = false;
+		else if ( CommandLine()->CheckParm( "-gamepadui" ) )
+			bIsGamepadUI = true;
 		else
 		{
-			if ( CommandLine()->CheckParm( "-gamepadui" ) != 0 )
-			{
-				s_nSteamDeckCached = 1;
-			}
-			else
-			{
-				char *deck = getenv("SteamDeck");
-				if ( deck == 0 || *deck == 0 )
-					s_nSteamDeckCached = 0;
-				else
-					s_nSteamDeckCached = atoi(deck) != 0;
-			}
+			const char *deckEnv = getenv( "SteamDeck" );
+			bIsDeck = deckEnv && *deckEnv && atoi( deckEnv ) != 0;
+
+			const char *bigPictureEnv = getenv( "SteamTenFoot" );
+			bIsGamepadUI = bigPictureEnv && *bigPictureEnv && atoi( bigPictureEnv ) != 0;
 		}
+
+		s_nSteamDeckCached = bIsDeck ? 1 : 0;
+		s_nGamepadUICached = bIsGamepadUI ? 1 : 0;
 	}
-	return s_nSteamDeckCached;
+
+	if ( bTrulyHardwareOnly )
+		return s_nSteamDeckCached == 1;
+	return s_nGamepadUICached == 1 || s_nSteamDeckCached == 1;
 }
 
 //-----------------------------------------------------------------------------
@@ -2247,12 +2256,14 @@ bool EvaluateConditional( const char *str )
 	return false;
 }
 
-
+// prevent two threads from entering this at the same time and trying to share the global error reporting and parse buffers
+static CThreadFastMutex g_KVMutex;
 //-----------------------------------------------------------------------------
 // Read from a buffer...
 //-----------------------------------------------------------------------------
 bool KeyValues::LoadFromBuffer( char const *resourceName, CUtlBuffer &buf, IBaseFileSystem* pFileSystem, const char *pPathID )
 {
+	AUTO_LOCK( g_KVMutex );
 	KeyValues *pPreviousKey = NULL;
 	KeyValues *pCurrentKey = this;
 	CUtlVector< KeyValues * > includedKeys;
@@ -2686,7 +2697,18 @@ bool KeyValues::WriteAsBinary( CUtlBuffer &buffer )
 			}
 		case TYPE_PTR:
 			{
+#if defined( PLATFORM_64BITS )
+				// We only put an int here, because 32-bit clients do not expect 64 bits. It'll cause them to read the wrong
+				// amount of data and then crash. Longer term, we may bump this up in size on all platforms, but short term 
+				// we don't really have much of a choice other than sticking in something that appears to not be NULL.
+				if ( dat->m_pValue != 0 && ( ( (int)(intp)dat->m_pValue ) == 0 ) )
+					buffer.PutInt( 31337 ); // Put not 0, but not a valid number. Yuck.
+				else
+					buffer.PutInt( ( (int)(intp)dat->m_pValue ) );
+#else
 				buffer.PutPtr( dat->m_pValue );
+#endif
+				break;
 			}
 
 		default:
@@ -2741,7 +2763,8 @@ bool KeyValues::ReadAsBinary( CUtlBuffer &buffer, int nStackDepth )
 		case TYPE_NONE:
 			{
 				dat->m_pSub = new KeyValues("");
-				dat->m_pSub->ReadAsBinary( buffer, nStackDepth + 1 );
+				if ( !dat->m_pSub->ReadAsBinary( buffer, nStackDepth + 1 ) )
+					return false;
 				break;
 			}
 		case TYPE_STRING:
@@ -2758,7 +2781,7 @@ bool KeyValues::ReadAsBinary( CUtlBuffer &buffer, int nStackDepth )
 			}
 		case TYPE_WSTRING:
 			{
-				Assert( !"TYPE_WSTRING" );
+				Assert( !"TYPE_WSTRING" ); // !! MERGE WARNING: Other branches were found to have security issues here, use caution if taking this from another branch (CS:GO known fixed)
 				break;
 			}
 
@@ -2790,7 +2813,14 @@ bool KeyValues::ReadAsBinary( CUtlBuffer &buffer, int nStackDepth )
 			}
 		case TYPE_PTR:
 			{
+#if defined( PLATFORM_64BITS )
+				// We need to ensure we only read 32 bits out of the stream because 32 bit clients only wrote 
+				// 32 bits of data there. The actual pointer is irrelevant, all that we really care about here
+				// contractually is whether the pointer is zero or not zero.
+				dat->m_pValue = ( void* )( intp )buffer.GetInt();
+#else
 				dat->m_pValue = buffer.GetPtr();
+#endif
 			}
 
 		default:

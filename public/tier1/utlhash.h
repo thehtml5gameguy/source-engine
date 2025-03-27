@@ -505,15 +505,15 @@ public:
 	int Count( void );
 
 	// Insertion.
-	UtlHashFastHandle_t Insert( unsigned int uiKey, const Data &data );
-	UtlHashFastHandle_t FastInsert( unsigned int uiKey, const Data &data );
+	UtlHashFastHandle_t Insert( uintp uiKey, const Data &data );
+	UtlHashFastHandle_t FastInsert( uintp uiKey, const Data &data );
 
 	// Removal.
 	void Remove( UtlHashFastHandle_t hHash );
 	void RemoveAll( void );
 
 	// Retrieval.
-	UtlHashFastHandle_t Find( unsigned int uiKey );
+	UtlHashFastHandle_t Find( uintp uiKey );
 
 	Data &Element( UtlHashFastHandle_t hHash );
 	Data const &Element( UtlHashFastHandle_t hHash ) const;
@@ -526,13 +526,13 @@ public:
 	template <typename HashData>
 	struct HashFastData_t_
 	{
-		unsigned int	m_uiKey;
+		uintp		m_uiKey;
 		HashData	m_Data;
 	};
 
 	typedef HashFastData_t_<Data> HashFastData_t;
 
-	unsigned int						m_uiBucketMask;	
+	uintp								m_uiBucketMask;	
 	CUtlVector<UtlHashFastHandle_t>		m_aBuckets;
 	CUtlFixedLinkedList<HashFastData_t>	m_aDataPool;
 };
@@ -597,10 +597,10 @@ template<class Data, class HashFuncs> inline int CUtlHashFast<Data,HashFuncs>::C
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Insert data into the hash table given its key (unsigned int), with
+// Purpose: Insert data into the hash table given its key (uintp), with
 //          a check to see if the element already exists within the tree.
 //-----------------------------------------------------------------------------
-template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::Insert( unsigned int uiKey, const Data &data )
+template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::Insert( uintp uiKey, const Data &data )
 {
 	// Check to see if that key already exists in the buckets (should be unique).
 	UtlHashFastHandle_t hHash = Find( uiKey );
@@ -611,10 +611,10 @@ template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Da
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Insert data into the hash table given its key (unsigned int),
+// Purpose: Insert data into the hash table given its key (uintp),
 //          without a check to see if the element already exists within the tree.
 //-----------------------------------------------------------------------------
-template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::FastInsert( unsigned int uiKey, const Data &data )
+template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::FastInsert( uintp uiKey, const Data &data )
 {
 	// Get a new element from the pool.
 	intp iHashData = m_aDataPool.Alloc( true );
@@ -666,7 +666,7 @@ template<class Data, class HashFuncs> inline void CUtlHashFast<Data,HashFuncs>::
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::Find( unsigned int uiKey )
+template<class Data, class HashFuncs> inline UtlHashFastHandle_t CUtlHashFast<Data,HashFuncs>::Find( uintp uiKey )
 {
 	// hash the "key" - get the correct hash table "bucket"
 	int iBucket = HashFuncs::Hash( uiKey, m_uiBucketMask );
@@ -753,7 +753,7 @@ public:
 	void Purge( void );
 
 	// Invalid handle.
-	static UtlHashFixedHandle_t InvalidHandle( void )	{ return ( UtlHashFixedHandle_t )-1; }
+	static UtlHashFixedHandle_t InvalidHandle( void )	{ return ( UtlHashFixedHandle_t )~0; }
 
 	// Size.
 	int Count( void );
@@ -858,7 +858,7 @@ template<class Data, int NUM_BUCKETS, class HashFuncs> inline UtlHashFixedHandle
 	pHashData->m_Data = data;
 
 	m_nElements++;
-	return (UtlHashFixedHandle_t)(intp)pHashData;
+	return (UtlHashFixedHandle_t)pHashData;	
 }
 
 //-----------------------------------------------------------------------------
@@ -895,7 +895,7 @@ template<class Data, int NUM_BUCKETS, class HashFuncs> inline UtlHashFixedHandle
 	for ( UtlPtrLinkedListIndex_t iElement = bucket.Head(); iElement != bucket.InvalidIndex(); iElement = bucket.Next( iElement ) )
 	{
 		if ( bucket[iElement].m_uiKey == uiKey )
-			return (UtlHashFixedHandle_t)(intp)iElement;
+			return (UtlHashFixedHandle_t)iElement;
 	}
 
 	return InvalidHandle();

@@ -56,10 +56,22 @@ wchar_t*	_V_wcsupr (const char* file, int line, wchar_t *start);
 
 // ASCII-optimized functions which fall back to CRT only when necessary
 char *V_strupr( char *start );
+char *V_strtitlecase( char *start );
 char *V_strlower( char *start );
 int V_stricmp( const char *s1, const char *s2 );
 int	V_strncmp( const char *s1, const char *s2, int count );
 int V_strnicmp( const char *s1, const char *s2, int n );
+
+#define V_strupper V_strupr
+#define V_strupper_fast V_strupr
+
+#define V_strnicmp_fast V_strnicmp
+
+// ASCII-only, if you want a full language-aware compare use V_UnicodeCaseCompare.
+int V_stricmp_fast( const char *s1, const char *s2 );
+
+#define V_stristr_fast V_stristr
+const char* V_stristr_fast( const char* pStr, const char* pSearch );
 
 //-----------------------------------------------------------------------------
 // Purpose: Slightly modified strtok. Does not modify the input string. Does
@@ -167,6 +179,23 @@ inline int V_strcasecmp (const char *s1, const char *s2) { return V_stricmp(s1, 
 inline int V_strncasecmp (const char *s1, const char *s2, int n) { return V_strnicmp(s1, s2, n); }
 void		V_qsort_s( void *base, size_t num, size_t width, int ( __cdecl *compare )(void *, const void *,
 const void *), void *context );
+
+inline const char* V_strchr( const char *s, char c )
+{
+#if defined( USE_TIER0_STRTOOLS_FUNCTIONS )
+    return V_tier0_strchr( s, c );
+#else
+    return ::strchr( s, c );
+#endif
+}
+inline char *V_strchr( char *s, char c )
+{
+#if defined( USE_TIER0_STRTOOLS_FUNCTIONS )
+    return (char*)V_tier0_strchr( s, c );
+#else
+    return (char*)::strchr( s, c );
+#endif
+}
 
 
 // returns string immediately following prefix, (ie str+strlen(prefix)) or NULL if prefix not found
@@ -689,6 +718,15 @@ void V_ExtractFileExtension( const char *path, char *dest, int destSize );
 
 const char *V_GetFileExtension( const char * path );
 
+inline const char *V_GetFileExtensionSafe( const char *path )
+{
+	const char *pExt = V_GetFileExtension( path );
+	if ( pExt == NULL )
+		return "";
+	else
+		return pExt;
+}
+
 // returns a pointer to just the filename part of the path
 // (everything after the last path seperator)
 const char *V_GetFileName( const char * path );
@@ -712,6 +750,26 @@ inline void V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const
 	}
 }
 
+inline void V_RemoveFormatSpecifications( const char *pszFrom, char *pszTo, size_t sizeDest )
+{
+	while ( *pszFrom && --sizeDest )
+	{
+		if ( *pszFrom == '%' )
+		{
+			if ( --sizeDest )
+			{
+				*pszTo++ = '%';
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		*pszTo++ = *pszFrom++;
+	}
+	*pszTo = 0;
+}
 
 // Creates a relative path given two full paths
 // The first is the full path of the file to make a relative path for.
@@ -720,7 +778,7 @@ inline void V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const
 bool V_MakeRelativePath( const char *pFullPath, const char *pDirectory, char *pRelativePath, int nBufLen );
 
 // Fixes up a file name, removing dot slashes, fixing slashes, converting to lowercase, etc.
-void V_FixupPathName( OUT_Z_CAP(nOutLen) char *pOut, size_t nOutLen, const char *pPath );
+void V_FixupPathName( OUT_Z_CAP(nOutLen) char *pOut, int nOutLen, const char *pPath );
 
 // Adds a path separator to the end of the string if there isn't one already. Returns false if it would run out of space.
 void V_AppendSlash( INOUT_Z_CAP(strSize) char *pStr, int strSize );
@@ -741,6 +799,8 @@ bool V_StrSubst( IN_Z const char *pIn, IN_Z const char *pMatch, const char *pRep
 void V_SplitString( IN_Z const char *pString, IN_Z const char *pSeparator, CUtlVector<char*, CUtlMemory<char*, int> > &outStrings );
 
 void V_SplitString( const char *pString, const char *pSeparator, CUtlVector< CUtlString, CUtlMemory<CUtlString, int> > &outStrings, bool bIncludeEmptyStrings = false );
+
+#define V_SplitString_Depreciated V_SplitString
 
 // Just like V_SplitString, but it can use multiple possible separators.
 void V_SplitString2( IN_Z const char *pString, const char **pSeparators, int nSeparators, CUtlVector<char*, CUtlMemory<char*, int> > &outStrings );
@@ -797,6 +857,7 @@ inline void V_wcscat( INOUT_Z_CAP(cchDest) wchar_t *dest, const wchar_t *src, in
 //
 // Returns false if there was not enough room in pDest to encode the entire source string, otherwise true
 bool V_BasicHtmlEntityEncode( OUT_Z_CAP( nDestSize ) char *pDest, const int nDestSize, char const *pIn, const int nInSize, bool bPreserveWhitespace = false );
+
 
 // Decode a string with htmlentities HTML -- this should handle all special chars, not just the ones Q_BasicHtmlEntityEncode uses.
 //
@@ -1266,6 +1327,7 @@ size_t Q_URLDecode( OUT_CAP(nDecodeDestLen) char *pchDecodeDest, int nDecodeDest
 #define Q_GenerateUniqueName		V_GenerateUniqueName
 #define Q_MakeRelativePath		V_MakeRelativePath
 #define Q_qsort_s				V_qsort_s
+#define Q_StrTrim				V_StrTrim
 
 #endif // !defined( VSTDLIB_DLL_EXPORT )
 
@@ -1281,5 +1343,29 @@ size_t Q_URLDecode( OUT_CAP(nDecodeDestLen) char *pchDecodeDest, int nDecodeDest
 // Strip white space at the beginning and end of a string
 int V_StrTrim( char *pStr );
 
+bool PATHSEPARATOR( char c );
+
+#define USE_FAST_CASE_CONVERSION 1
+#if USE_FAST_CASE_CONVERSION
+/// Faster conversion of an ascii char to upper case. This function does not obey locale or any language
+/// setting. It should not be used to convert characters for printing, but it is a better choice
+/// for internal strings such as used for hash table keys, etc. It's meant to be inlined and used
+/// in places like the various dictionary classes. Not obeying locale also protects you from things
+/// like your hash values being different depending on the locale setting.
+#define FastASCIIToUpper( c ) ( ( ( (c) >= 'a' ) && ( (c) <= 'z' ) ) ? ( (c) - 32 ) : (c) )
+/// similar to FastASCIIToLower
+#define FastASCIIToLower( c ) ( ( ( (c) >= 'A' ) && ( (c) <= 'Z' ) ) ? ( (c) + 32 ) : (c) )
+#else
+#define FastASCIIToLower tolower
+#define FastASCIIToUpper toupper
+#endif
+
+// A special high-performance case-insensitive compare function that in
+// a single call distinguishes between exactly matching strings,
+// strings equal in case-insensitive way, and not equal strings:
+//   returns 0 if strings match exactly
+//   returns >0 if strings match in a case-insensitive way, but do not match exactly
+//   returns <0 if strings do not match even in a case-insensitive way
+int	_V_stricmp_NegativeForUnequal	  ( const char *s1, const char *s2 );
 
 #endif	// TIER1_STRTOOLS_H

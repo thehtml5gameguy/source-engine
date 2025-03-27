@@ -1,11 +1,12 @@
-//===== Copyright 1996-2005, Valve Corporation, All rights reserved. ======//
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
 //===========================================================================//
 
-#include "tier1/mempool.h"
+#include "mempool.h"
 #include <stdio.h>
+#include <malloc.h>
 #include <memory.h>
 #include "tier0/dbg.h"
 #include <ctype.h>
@@ -39,7 +40,7 @@ void CUtlMemoryPool::SetErrorReportFunc( MemoryPoolReportFunc_t func )
 CUtlMemoryPool::CUtlMemoryPool( int blockSize, int numElements, int growMode, const char *pszAllocOwner, int nAlignment )
 {
 #ifdef _X360
-	if( numElements > 0 && growMode != GROW_NONE )
+	if( numElements > 0 && growMode != UTLMEMORYPOOL_GROW_NONE )
 	{
 		numElements = 1;
 	}
@@ -108,40 +109,18 @@ void CUtlMemoryPool::Clear()
 	Init();
 }
 
-
-//-----------------------------------------------------------------------------
-// Is an allocation within the pool? 
-//-----------------------------------------------------------------------------
-bool CUtlMemoryPool::IsAllocationWithinPool( void *pMem ) const
-{
-	for( CBlob *pCur = m_BlobHead.m_pNext; pCur != &m_BlobHead; pCur = pCur->m_pNext )
-	{
-		// Is the allocation within the blob?
-		if ( ( pMem < pCur->m_Data ) || ( pMem >= pCur->m_Data + pCur->m_NumBytes ) )
-			continue;
-
-		// Make sure the allocation is on a block boundary
-		intp pFirstAllocation = AlignValue( ( intp ) pCur->m_Data, m_nAlignment );
-
-		intp nOffset = (intp)pMem - pFirstAllocation;
-		return ( nOffset % m_BlockSize ) == 0;
-	}
-
-	return false;
-}
-
-
 //-----------------------------------------------------------------------------
 // Purpose: Reports memory leaks 
 //-----------------------------------------------------------------------------
+
 void CUtlMemoryPool::ReportLeaks()
 {
-#ifdef _DEBUG
 	if (!g_ReportFunc)
 		return;
 
 	g_ReportFunc("Memory leak: mempool blocks left in memory: %d\n", m_BlocksAllocated);
 
+#ifdef _DEBUG
 	// walk and destroy the free list so it doesn't intefere in the scan
 	while (m_pHeadOfFreeList != NULL)
 	{
@@ -162,7 +141,7 @@ void CUtlMemoryPool::ReportLeaks()
 		while (scanPoint < scanEnd)
 		{
 			// search for and dump any strings
-			if ((unsigned)(*scanPoint + 1) <= 256 && V_isprint(*scanPoint))
+			if ((unsigned)(*scanPoint + 1) <= 256 && isprint(*scanPoint))
 			{
 				g_ReportFunc("%c", *scanPoint);
 				needSpace = true;
@@ -191,18 +170,18 @@ void CUtlMemoryPool::AddNewBlob()
 
 	int sizeMultiplier;
 
-	if( m_GrowMode == GROW_SLOW )
+	if( m_GrowMode == UTLMEMORYPOOL_GROW_SLOW )
 	{
 		sizeMultiplier = 1;
 	}
 	else
 	{
-		if ( m_GrowMode == GROW_NONE )
+		if ( m_GrowMode == UTLMEMORYPOOL_GROW_NONE )
 		{
 			// Can only have one allocation when we're in this mode
 			if( m_NumBlobs != 0 )
 			{
-				Assert( !"CUtlMemoryPool::AddNewBlob: mode == GROW_NONE" );
+				Assert( !"CUtlMemoryPool::AddNewBlob: mode == UTLMEMORYPOOL_GROW_NONE" );
 				return;
 			}
 		}
@@ -263,12 +242,12 @@ void *CUtlMemoryPool::Alloc( size_t amount )
 	if ( amount > (size_t)m_BlockSize )
 		return NULL;
 
-	if ( !m_pHeadOfFreeList )
+	if( !m_pHeadOfFreeList )
 	{
-		// returning NULL is fine in GROW_NONE
-		if ( m_GrowMode == GROW_NONE && m_NumBlobs > 0 )
+		// returning NULL is fine in UTLMEMORYPOOL_GROW_NONE
+		if( m_GrowMode == UTLMEMORYPOOL_GROW_NONE )
 		{
-			//Assert( !"CUtlMemoryPool::Alloc: tried to make new blob with GROW_NONE" );
+			//Assert( !"CUtlMemoryPool::Alloc: tried to make new blob with UTLMEMORYPOOL_GROW_NONE" );
 			return NULL;
 		}
 
@@ -276,7 +255,7 @@ void *CUtlMemoryPool::Alloc( size_t amount )
 		AddNewBlob();
 
 		// still failure, error out
-		if ( !m_pHeadOfFreeList )
+		if( !m_pHeadOfFreeList )
 		{
 			Assert( !"CUtlMemoryPool::Alloc: ran out of memory" );
 			return NULL;
@@ -343,14 +322,4 @@ void CUtlMemoryPool::Free( void *memBlock )
 	m_pHeadOfFreeList = memBlock;
 }
 
-int CUtlMemoryPool::Size() const		
-{ 
-	uint32 size = 0;
-
-	for( CBlob *pCur=m_BlobHead.m_pNext; pCur != &m_BlobHead; pCur=pCur->m_pNext )
-	{
-		size += pCur->m_NumBytes;
-	}
-	return size;
-}
 

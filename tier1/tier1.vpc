@@ -135,6 +135,7 @@ $Project "tier1"
 		$File	"$SRCDIR\public\tier1\tier1.h"
 		$File	"$SRCDIR\public\tier1\tokenreader.h"
 		$File	"$SRCDIR\public\tier1\uniqueid.h"				[$WINDOWS]
+		$File	"$SRCDIR\public\tier1\util_misc.h"
 		$File	"$SRCDIR\public\tier1\utlbidirectionalset.h"
 		$File	"$SRCDIR\public\tier1\utlblockmemory.h"
 		$File	"$SRCDIR\public\tier1\utlbuffer.h"
@@ -160,6 +161,7 @@ $Project "tier1"
 		$File	"$SRCDIR\public\tier1\utlsymbol.h"
 		$File	"$SRCDIR\public\tier1\utlsymbollarge.h"
 		$File	"$SRCDIR\public\tier1\utlvector.h"
+		$File	"$SRCDIR\public\tier1\utlrange.h"
 		$File	"$SRCDIR\public\tier1\utlbinaryblock.h"
 		$File	"$SRCDIR\common\xbox\xboxstubs.h"				[$WINDOWS]
 	}

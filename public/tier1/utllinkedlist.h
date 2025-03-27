@@ -1,4 +1,4 @@
-//========= Copyright � 1996-2005, Valve Corporation, All rights reserved. ============//
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose: Linked list container class 
 //
@@ -24,10 +24,7 @@
 
 // This is a useful macro to iterate from head to tail in a linked list.
 #define FOR_EACH_LL( listName, iteratorName ) \
-	for( auto iteratorName=(listName).Head(); (listName).IsUtlLinkedList && iteratorName != (listName).InvalidIndex(); iteratorName = (listName).Next( iteratorName ) )
-
-#define FOR_EACH_LL_BACK( listName, iteratorName ) \
-	for( auto iteratorName=(listName).Tail(); (listName).IsUtlLinkedList && iteratorName != (listName).InvalidIndex(); iteratorName = (listName).Previous( iteratorName ) )
+	for( intp iteratorName=(listName).Head(); (listName).IsUtlLinkedList && iteratorName != (listName).InvalidIndex(); iteratorName = (listName).Next( iteratorName ) )
 
 //-----------------------------------------------------------------------------
 // class CUtlLinkedList:
@@ -68,14 +65,11 @@ public:
 	typedef S IndexType_t; // should really be called IndexStorageType_t, but that would be a huge change
 	typedef I IndexLocalType_t;
 	typedef M MemoryAllocator_t;
-	enum { IsUtlLinkedList = true }; // Used to match this at compiletime 
+	static const bool IsUtlLinkedList = true; // Used to match this at compiletime 
 
 	// constructor, destructor
 	CUtlLinkedList( int growSize = 0, int initSize = 0 );
 	~CUtlLinkedList();
-
-	CUtlLinkedList( const CUtlLinkedList& ) = delete;
-	CUtlLinkedList& operator=( const CUtlLinkedList& ) = delete;
 
 	// gets particular elements
 	T&         Element( I i );
@@ -257,8 +251,9 @@ public:
 		typedef _CUtlLinkedList_constiterator_t< List_t > Base;
 
 		// Default constructor -- gives a currently unusable iterator.
-		_CUtlLinkedList_iterator_t() = default;
-
+		_CUtlLinkedList_iterator_t()
+		{
+		}
 		// Normal constructor.
 		_CUtlLinkedList_iterator_t( const List_t& list, IndexType_t index )
 			: _CUtlLinkedList_constiterator_t< List_t >( list, index )
@@ -353,12 +348,15 @@ protected:
 	typedef UtlLinkedListElem_t<T, S>  ListElem_t;
 
 	// constructs the class
-	I		AllocInternal( bool multilist = false ) RESTRICT;
+	I		AllocInternal( bool multilist = false );
 	void ConstructList();
 	
 	// Gets at the list element....
 	ListElem_t& InternalElement( I i ) { return m_Memory[i]; }
 	ListElem_t const& InternalElement( I i ) const { return m_Memory[i]; }
+
+	// copy constructors not allowed
+	CUtlLinkedList( CUtlLinkedList<T, S, ML, I, M> const& list ) { Assert(0); }
 
 	M	m_Memory;
 	I	m_Head;
@@ -381,6 +379,12 @@ protected:
 	{
 		m_pElements = m_Memory.Base();
 	}
+
+private:
+	// Faster version of Next that can only be used from tested code internal
+	// to this class, such as Find(). It avoids the cost of checking the index
+	// validity, which is a big win on debug builds.
+	I  PrivateNext( I i ) const;
 };
 
 
@@ -389,27 +393,29 @@ template < class T >
 class CUtlFixedLinkedList : public CUtlLinkedList< T, intp, true, intp, CUtlFixedMemory< UtlLinkedListElem_t< T, intp > > >
 {
 public:
+	typedef CUtlLinkedList< T, intp, true, intp, CUtlFixedMemory< UtlLinkedListElem_t< T, intp > > > BaseClass;
+
 	CUtlFixedLinkedList( int growSize = 0, int initSize = 0 )
-		: CUtlLinkedList< T, intp, true, intp, CUtlFixedMemory< UtlLinkedListElem_t< T, intp > > >( growSize, initSize ) {}
+		: BaseClass( growSize, initSize ) {}
 
 	bool IsValidIndex( intp i ) const
 	{
-		if ( !this->Memory().IsIdxValid( i ) )
+		if ( !BaseClass::Memory().IsIdxValid( i ) )
 			return false;
 
 #ifdef _DEBUG // it's safe to skip this here, since the only way to get indices after m_LastAlloc is to use MaxElementIndex
-		if ( this->Memory().IsIdxAfter( i, this->m_LastAlloc ) )
+		if ( BaseClass::Memory().IsIdxAfter( i, this->m_LastAlloc ) )
 		{
 			Assert( 0 );
 			return false; // don't read values that have been allocated, but not constructed
 		}
 #endif
 
-		return ( this->Memory()[ i ].m_Previous != i ) || ( this->Memory()[ i ].m_Next == i );
+		return ( BaseClass::Memory()[ i ].m_Previous != i ) || ( BaseClass::Memory()[ i ].m_Next == i );
 	}
 
 private:
-	int	MaxElementIndex() const { Assert( 0 ); return this->InvalidIndex(); } // fixedmemory containers don't support iteration from 0..maxelements-1
+	int	MaxElementIndex() const { Assert( 0 ); return BaseClass::InvalidIndex(); } // fixedmemory containers don't support iteration from 0..maxelements-1
 	void ResetDbgInfo() {}
 };
 
@@ -433,9 +439,10 @@ template <class T, class S, bool ML, class I, class M>
 CUtlLinkedList<T,S,ML,I,M>::CUtlLinkedList( int growSize, int initSize ) :
 	m_Memory( growSize, initSize ), m_LastAlloc( m_Memory.InvalidIterator() )
 {
+	// Prevent signed non-int datatypes
 #if !defined( PLATFORM_WINDOWS_PC64 ) && !defined( PLATFORM_64BITS )
 	// Prevent signed non-int datatypes
-	COMPILE_TIME_ASSERT( sizeof(S) == 4 || ( ( (S)-1 ) > 0 ) );
+	COMPILE_TIME_ASSERT( sizeof( S ) == 4 || ( ( (S) -1 ) > 0 ) );
 #endif
 	ConstructList();
 	ResetDbgInfo();
@@ -533,6 +540,12 @@ template <class T, class S, bool ML, class I, class M>
 inline I  CUtlLinkedList<T,S,ML,I,M>::Next( I i ) const  
 { 
 	Assert( IsValidIndex(i) ); 
+	return InternalElement(i).m_Next; 
+}
+
+template <class T, class S, bool ML, class I, class M>
+inline I  CUtlLinkedList<T,S,ML,I,M>::PrivateNext( I i ) const  
+{ 
 	return InternalElement(i).m_Next; 
 }
 
@@ -653,7 +666,7 @@ void CUtlLinkedList<T,S,ML,I,M>::PurgeAndDeleteElements()
 // Node allocation/deallocation
 //-----------------------------------------------------------------------------
 template <class T, class S, bool ML, class I, class M>
-I CUtlLinkedList<T,S,ML,I,M>::AllocInternal( bool multilist ) RESTRICT
+I CUtlLinkedList<T,S,ML,I,M>::AllocInternal( bool multilist )
 {
 	Assert( !multilist || ML );
 #ifdef MULTILIST_PEDANTIC_ASSERTS
@@ -848,7 +861,9 @@ inline I CUtlLinkedList<T,S,ML,I,M>::AddToTail( T const& src )
 template<class T, class S, bool ML, class I, class M>
 I CUtlLinkedList<T,S,ML,I,M>::Find( const T &src ) const
 {
-	for ( I i=Head(); i != InvalidIndex(); i = Next( i ) )
+	// Cache the invalidIndex to avoid two levels of function calls on each iteration.
+	I invalidIndex = InvalidIndex();
+	for ( I i=Head(); i != invalidIndex; i = PrivateNext( i ) )
 	{
 		if ( Element( i ) == src )
 			return i;
@@ -1230,7 +1245,7 @@ private:
 
 	struct Node_t
 	{
-		Node_t() = default;
+		Node_t() {}
 		Node_t( const T &_elem ) : elem( _elem ) {}
 
 		T elem;

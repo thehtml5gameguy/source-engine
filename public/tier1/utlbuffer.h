@@ -1,4 +1,4 @@
-//====== Copyright (c) 1996-2005, Valve Corporation, All rights reserved. =======//
+//========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
 //
@@ -13,8 +13,6 @@
 #ifdef _WIN32
 #pragma once
 #endif
-
-#include "unitlib/unitlib.h" // just here for tests - remove before checking in!!!
 
 #include "tier1/utlmemory.h"
 #include "tier1/byteswap.h"
@@ -131,21 +129,6 @@ template <> static const char *GetFmtStr< double >	( int nRadix, bool bPrint ) {
 //-----------------------------------------------------------------------------
 class CUtlBuffer
 {
-// Brian has on his todo list to revisit this as there are issues in some cases with CUtlVector using operator = instead of copy construtor in InsertMultiple, etc.
-// The unsafe case is something like this:
-//  CUtlVector< CUtlBuffer > vecFoo;
-// 
-//  CUtlBuffer buf;
-//  buf.Put( xxx );
-//  vecFoo.Insert( buf );
-//
-//  This will cause memory corruption when vecFoo is cleared
-//
-//private:
-//	// Disallow copying
-//	CUtlBuffer( const CUtlBuffer & );// { Assert( 0 ); }
-//	CUtlBuffer &operator=( const CUtlBuffer & );//  { Assert( 0 ); return *this; }
-
 public:
 	enum SeekType_t
 	{
@@ -170,20 +153,8 @@ public:
 	// Constructors for growable + external buffers for serialization/unserialization
 	CUtlBuffer( int growSize = 0, int initSize = 0, int nFlags = 0 );
 	CUtlBuffer( const void* pBuffer, int size, int nFlags = 0 );
-	// This one isn't actually defined so that we catch contructors that are trying to pass a bool in as the third param.
-	CUtlBuffer( const void *pBuffer, int size, bool crap ) = delete;
-
-	// UtlBuffer objects should not be copyable; we do a slow copy if you use this but it asserts.
-	// (REI: I'd like to delete these but we have some python bindings that currently rely on being able to copy these objects)
-	CUtlBuffer( const CUtlBuffer& ); // = delete;
-	CUtlBuffer& operator= ( const CUtlBuffer& ); // = delete;
-
-#if VALVE_CPP11
-	// UtlBuffer is non-copyable (same as CUtlMemory), but it is moveable.  We would like to declare these with '= default'
-	// but unfortunately VS2013 isn't fully C++11 compliant, so we have to manually declare these in the boilerplate way.
-	CUtlBuffer( CUtlBuffer&& moveFrom ); // = default;
-	CUtlBuffer& operator= ( CUtlBuffer&& moveFrom ); // = default;
-#endif
+	// This one isn't actually defined so that we catch constructors that are trying to pass a bool in as the third param.
+	CUtlBuffer( const void *pBuffer, int size, bool junk );
 
 	unsigned char	GetFlags() const;
 
@@ -200,9 +171,11 @@ public:
 	// Attaches the buffer to external memory....
 	void			SetExternalBuffer( void* pMemory, int nSize, int nInitialPut, int nFlags = 0 );
 	bool			IsExternallyAllocated() const;
+	// Takes ownership of the passed memory, including freeing it when this buffer is destroyed.
 	void			AssumeMemory( void *pMemory, int nSize, int nInitialPut, int nFlags = 0 );
-	void			*Detach();
-	void*			DetachMemory();
+
+	void* Detach();
+	void* DetachMemory();
 
 	// copies data from another buffer
 	void			CopyBuffer( const CUtlBuffer &buffer );
@@ -230,9 +203,6 @@ public:
 	// Clears out the buffer; frees memory
 	void			Purge();
 
-	// Dump the buffer to stdout
-	void			Spew( );
-
 	// Read stuff out.
 	// Binary mode: it'll just read the bits directly in, and characters will be
 	//		read for strings until a null character is reached.
@@ -244,25 +214,27 @@ public:
 	unsigned short	GetUnsignedShort( );
 	int				GetInt( );
 	int64			GetInt64( );
-	unsigned int	GetIntHex( );
+	int				GetIntHex( );
 	unsigned int	GetUnsignedInt( );
-	uint64			GetUnsignedInt64( );
 	float			GetFloat( );
 	double			GetDouble( );
 	void *			GetPtr();
-	void			GetString( char* pString, size_t nMaxChars );
-	bool			Get( void* pMem, int size );
-	void			GetLine( char* pLine, int nMaxChars );
+	template <size_t maxLenInChars> void GetString( char( &pString )[maxLenInChars] )
+	{
+		GetStringInternal( pString, maxLenInChars );
+	}
+	void GetString( char* pString, size_t maxLenInChars )
+	{
+		GetStringInternal( pString, maxLenInChars );
+	}
 
 	void GetStringManualCharCount( char *pString, size_t maxLenInChars )
 	{
 		GetStringInternal( pString, maxLenInChars );
 	}
 
-	template <size_t maxLenInChars> void GetString( char( &pString )[maxLenInChars] )
-	{
-		GetStringInternal( pString, maxLenInChars );
-	}
+	void			Get( void* pMem, int size );
+	void			GetLine( char* pLine, int nMaxChars = 0 );
 
 	// Used for getting objects that have a byteswap datadesc defined
 	template <typename T> void GetObjects( T *dest, int count = 1 );
@@ -294,7 +266,7 @@ public:
 
 	// Just like scanf, but doesn't work in binary mode
 	int				Scanf( SCANF_FORMAT_STRING const char* pFmt, ... );
- 	int				VaScanf( const char* pFmt, va_list list );
+	int				VaScanf( const char* pFmt, va_list list );
 
 	// Eats white space, advances Get index
 	void			EatWhiteSpace();
@@ -326,16 +298,16 @@ public:
 	//		PutString will not write a terminating character
 	void			PutChar( char c );
 	void			PutUnsignedChar( unsigned char uc );
+	void			PutUint64( uint64 ub );
+	void			PutInt16( int16 s16 );
 	void			PutShort( short s );
 	void			PutUnsignedShort( unsigned short us );
 	void			PutInt( int i );
 	void			PutInt64( int64 i );
 	void			PutUnsignedInt( unsigned int u );
-	void			PutUnsignedInt64( uint64 u );
-	void			PutUint64( uint64 u );
 	void			PutFloat( float f );
 	void			PutDouble( double d );
-	void			PutPtr( void * ); // Writes the pointer, not the pointed to
+	void			PutPtr( void* ); // Writes the pointer, not the pointed to
 	void			PutString( const char* pString );
 	void			Put( const void* pMem, int size );
 
@@ -374,8 +346,8 @@ public:
 	// Buffer base
 	const void* Base() const;
 	void* Base();
-
-	const void* String() const;
+	// Returns the base as a const char*, only valid in text mode.
+	const char *String() const;
 
 	// memory allocation size, does *not* reflect size written or read,
 	//	use TellPut or TellGet for that
@@ -408,12 +380,6 @@ public:
 	// Temporarily disables pretty print
 	void EnableTabs( bool bEnable );
 
-#if !defined( _GAMECONSOLE )
-	// Swap my internal memory with another buffer,
-	// and copy all of its other members
-	void SwapCopy( CUtlBuffer &other ) ;
-#endif
-
 protected:
 	// error flags
 	enum
@@ -433,10 +399,7 @@ protected:
 	bool CheckPut( int size );
 	bool CheckGet( int size );
 
-	// NOTE: Pass in nPut here even though it is just a copy of m_Put.  This is almost always called immediately 
-	// after modifying m_Put and this lets it stay in a register
 	void AddNullTermination( );
-	void AddNullTermination( int nPut );
 
 	// Methods to help with pretty-printing
 	bool WasLastCharacterCR();
@@ -467,17 +430,14 @@ protected:
 	bool CheckArbitraryPeekGet( int nOffset, int &nIncrement );
 	void GetStringInternal( char *pString, size_t maxLenInChars );
 
-	template <typename T> void GetType( T& dest );
+	template <typename T> void GetType( T& dest, const char *pszFmt );
 	template <typename T> void GetTypeBin( T& dest );
-	template <typename T> bool GetTypeText( T &value, int nRadix = 10 );
 	template <typename T> void GetObject( T *src );
 
-	template <typename T> void PutType( T src );
+	template <typename T> void PutType( T src, const char *pszFmt );
 	template <typename T> void PutTypeBin( T src );
 	template <typename T> void PutObject( T *src );
 
-	// be sure to also update the copy constructor
-	// and SwapCopy() when adding members.
 	CUtlMemory<unsigned char> m_Memory;
 	int m_Get;
 	int m_Put;
@@ -749,134 +709,8 @@ inline void CUtlBuffer::GetTypeBin< float >( float &dest )
 	}					
 }
 
-template <>
-inline void CUtlBuffer::GetTypeBin< double >( double &dest )
-{
-	if ( CheckGet( sizeof( double ) ) )
-	{
-		uintp pData = (uintp)PeekGet();
-		if ( ( IsX360() || IsPS3() ) && ( pData & 0x07 ) )
-		{
-			// handle unaligned read
-			((unsigned char*)&dest)[0] = ((unsigned char*)pData)[0];
-			((unsigned char*)&dest)[1] = ((unsigned char*)pData)[1];
-			((unsigned char*)&dest)[2] = ((unsigned char*)pData)[2];
-			((unsigned char*)&dest)[3] = ((unsigned char*)pData)[3];
-			((unsigned char*)&dest)[4] = ((unsigned char*)pData)[4];
-			((unsigned char*)&dest)[5] = ((unsigned char*)pData)[5];
-			((unsigned char*)&dest)[6] = ((unsigned char*)pData)[6];
-			((unsigned char*)&dest)[7] = ((unsigned char*)pData)[7];
-		}
-		else
-		{
-			// aligned read
-			dest = *(double *)pData;
-		}
-		if ( m_Byteswap.IsSwappingBytes() )
-		{
-			m_Byteswap.SwapBufferToTargetEndian< double >( &dest, &dest );
-		}
-		m_Get += sizeof( double );	
-	}		
-	else
-	{
-		dest = 0;
-	}					
-}
-
-template < class T >
-inline T StringToNumber( char *pString, char **ppEnd, int nRadix )
-{
-	Assert( 0 );
-	*ppEnd = pString;
-	return 0;
-}
-
-template <>
-inline int8 StringToNumber( char *pString, char **ppEnd, int nRadix )
-{
-	return ( int8 )strtol( pString, ppEnd, nRadix );
-}
-
-template <>
-inline uint8 StringToNumber( char *pString, char **ppEnd, int nRadix )
-{
-	return ( uint8 )strtoul( pString, ppEnd, nRadix );
-}
-
-template <>
-inline int16 StringToNumber( char *pString, char **ppEnd, int nRadix )
-{
-	return ( int16 )strtol( pString, ppEnd, nRadix );
-}
-
-template <>
-inline uint16 StringToNumber( char *pString, char **ppEnd, int nRadix )
-{
-	return ( uint16 )strtoul( pString, ppEnd, nRadix );
-}
-
-template <>
-inline int32 StringToNumber( char *pString, char **ppEnd, int nRadix )
-{
-	return ( int32 )strtol( pString, ppEnd, nRadix );
-}
-
-template <>
-inline uint32 StringToNumber( char *pString, char **ppEnd, int nRadix )
-{
-	return ( uint32 )strtoul( pString, ppEnd, nRadix );
-}
-
-template <>
-inline int64 StringToNumber( char *pString, char **ppEnd, int nRadix )
-{
-#if defined(_PS3) || defined(POSIX)
-	return ( int64 )strtoll( pString, ppEnd, nRadix );
-#else // !_PS3
-	return ( int64 )_strtoi64( pString, ppEnd, nRadix );
-#endif // _PS3
-}
-
-template <>
-inline float StringToNumber( char *pString, char **ppEnd, int nRadix )
-{
-	NOTE_UNUSED( nRadix );
-	return ( float )strtod( pString, ppEnd );
-}
-
-template <>
-inline double StringToNumber( char *pString, char **ppEnd, int nRadix )
-{
-	NOTE_UNUSED( nRadix );
-	return ( double )strtod( pString, ppEnd );
-}
-
-template <typename T>
-inline bool CUtlBuffer::GetTypeText( T &value, int nRadix /*= 10*/ )
-{
-	// NOTE: This is not bullet-proof; it assumes numbers are < 128 characters
-	int nLength = 128;
-	if ( !CheckArbitraryPeekGet( 0, nLength ) )
-	{
-		value = 0;
-		return false;
-	}
-
-	char *pStart = (char*)PeekGet();
-	char* pEnd = pStart;
-	value = StringToNumber< T >( pStart, &pEnd, nRadix );
-
-	int nBytesRead = (int)( pEnd - pStart );
-	if ( nBytesRead == 0 )
-		return false;
-
-	m_Get += nBytesRead;
-	return true;
-}
-
 template <typename T> 
-inline void CUtlBuffer::GetType( T &dest )
+inline void CUtlBuffer::GetType( T &dest, const char *pszFmt )
 {
 	if (!IsText())
 	{
@@ -884,101 +718,78 @@ inline void CUtlBuffer::GetType( T &dest )
 	}
 	else
 	{
-		GetTypeText( dest );
+		dest = 0;
+		Scanf( pszFmt, &dest );
 	}
 }
 
 inline char CUtlBuffer::GetChar( )
 {
-	// LEGACY WARNING: this behaves differently than GetUnsignedChar()
 	char c;
-	GetTypeBin( c ); // always reads as binary
+	GetType( c, "%c" );
 	return c;
 }
 
 inline unsigned char CUtlBuffer::GetUnsignedChar( )
 {
-	// LEGACY WARNING: this behaves differently than GetChar()
 	unsigned char c;
-	if (!IsText())
-	{
-		GetTypeBin( c );
-	}
-	else
-	{
-		c = ( unsigned char )GetUnsignedShort();
-	}
+	GetType( c, "%u" );
 	return c;
 }
 
 inline short CUtlBuffer::GetShort( )
 {
 	short s;
-	GetType( s );
+	GetType( s, "%d" );
 	return s;
 }
 
 inline unsigned short CUtlBuffer::GetUnsignedShort( )
 {
 	unsigned short s;
-	GetType( s );
+	GetType( s, "%u" );
 	return s;
 }
 
 inline int CUtlBuffer::GetInt( )
 {
 	int i;
-	GetType( i );
+	GetType( i, "%d" );
 	return i;
 }
 
 inline int64 CUtlBuffer::GetInt64( )
 {
 	int64 i;
-	GetType( i );
+	GetType( i, "%lld" );
 	return i;
 }
 
-inline unsigned int CUtlBuffer::GetIntHex( )
+inline int CUtlBuffer::GetIntHex( )
 {
-	uint i;
-	if (!IsText())
-	{
-		GetTypeBin( i );
-	}
-	else
-	{
-		GetTypeText( i, 16 );
-	}
+	int i;
+	GetType( i, "%x" );
 	return i;
 }
 
 inline unsigned int CUtlBuffer::GetUnsignedInt( )
 {
-	unsigned int i;
-	GetType( i );
-	return i;
+	unsigned int u;
+	GetType( u, "%u" );
+	return u;
 }
-
-inline uint64 CUtlBuffer::GetUnsignedInt64()
-{
-	uint64 i;
-	GetType( i );
-	return i;
-}
-
 
 inline float CUtlBuffer::GetFloat( )
 {
 	float f;
-	GetType( f );
+	GetType( f, "%f" );
 	return f;
 }
 
 inline double CUtlBuffer::GetDouble( )
 {
 	double d;
-	GetType( d );
+	GetType( d, "%f" );
 	return d;
 }
 
@@ -1165,7 +976,7 @@ inline void CUtlBuffer::PutTypeBin< double >( double src )
 #endif
 
 template <typename T> 
-inline void CUtlBuffer::PutType( T src )
+inline void CUtlBuffer::PutType( T src, const char *pszFmt )
 {
 	if (!IsText())
 	{
@@ -1173,7 +984,7 @@ inline void CUtlBuffer::PutType( T src )
 	}
 	else
 	{
-		Printf( GetFmtStr< T >(), src );
+		Printf( pszFmt, src );
 	}
 }
 
@@ -1241,65 +1052,58 @@ inline void CUtlBuffer::PutChar( char c )
 
 inline void CUtlBuffer::PutUnsignedChar( unsigned char c )
 {
-	if (!IsText())
-	{
-		PutTypeBin( c );
-	}
-	else
-	{
-		PutUnsignedShort( c );
-	}
+	PutType( c, "%u" );
+}
+
+inline void CUtlBuffer::PutUint64( uint64 ub )
+{
+	PutType( ub, "%llu" );
+}
+
+inline void CUtlBuffer::PutInt16( int16 s16 )
+{
+	PutType( s16, "%d" );
 }
 
 inline void  CUtlBuffer::PutShort( short s )
 {
-	PutType( s );
+	PutType( s, "%d" );
 }
 
 inline void CUtlBuffer::PutUnsignedShort( unsigned short s )
 {
-	PutType( s );
+	PutType( s, "%u" );
 }
 
 inline void CUtlBuffer::PutInt( int i )
 {
-	PutType( i );
+	PutType( i, "%d" );
 }
 
 inline void CUtlBuffer::PutInt64( int64 i )
 {
-	PutType( i );
+	PutType( i, "%llu" );
 }
 
 inline void CUtlBuffer::PutUnsignedInt( unsigned int u )
 {
-	PutType( u );
-}
-
-inline void CUtlBuffer::PutUnsignedInt64( uint64 i )
-{
-	PutType( i );
-}
-
-inline void CUtlBuffer::PutUint64( uint64 i )
-{
-	PutType( i );
+	PutType( u, "%u" );
 }
 
 inline void CUtlBuffer::PutFloat( float f )
 {
-	PutType( f );
+	PutType( f, "%f" );
 }
 
 inline void CUtlBuffer::PutDouble( double d )
 {
-	PutType( d );
+	PutType( d, "%f" );
 }
 
-inline void CUtlBuffer::PutPtr( void *p )
+inline void CUtlBuffer::PutPtr( void* p )
 {
 	// LEGACY WARNING: in text mode, PutPtr writes 32 bit pointers in hex, while GetPtr reads 32 or 64 bit pointers in decimal
-	if (!IsText())
+	if ( !IsText() )
 	{
 		PutTypeBin( p );
 	}
@@ -1357,25 +1161,26 @@ inline bool CUtlBuffer::IsReadOnly() const
 //-----------------------------------------------------------------------------
 // Buffer base and size
 //-----------------------------------------------------------------------------
-inline const void* CUtlBuffer::Base() const
-{
-	return m_Memory.Base();
+inline const void* CUtlBuffer::Base() const	
+{ 
+	return m_Memory.Base(); 
 }
 
 inline void* CUtlBuffer::Base()
 {
-	return m_Memory.Base();
+	return m_Memory.Base(); 
 }
 
-inline const void* CUtlBuffer::String() const
+// Returns the base as a const char*, only valid in text mode.
+inline const char *CUtlBuffer::String() const
 {
 	Assert( IsText() );
 	return reinterpret_cast<const char*>( m_Memory.Base() );
 }
 
-inline int CUtlBuffer::Size() const
-{
-	return m_Memory.NumAllocated();
+inline int CUtlBuffer::Size() const			
+{ 
+	return m_Memory.NumAllocated(); 
 }
 
 
@@ -1402,9 +1207,6 @@ inline void CUtlBuffer::Purge()
 	m_Memory.Purge();
 }
 
-//-----------------------------------------------------------------------------
-// 
-//-----------------------------------------------------------------------------
 inline void *CUtlBuffer::AccessForDirectRead( int nBytes )
 {
 	Assert( m_Get == 0 && m_Put == 0 && m_nMaxPut == 0 );
@@ -1412,47 +1214,6 @@ inline void *CUtlBuffer::AccessForDirectRead( int nBytes )
 	m_nMaxPut = nBytes;
 	return Base();
 }
-
-inline void *CUtlBuffer::Detach()
-{
-	void *p = m_Memory.Detach();
-	Clear();
-	return p;
-}
-
-//-----------------------------------------------------------------------------
-
-inline void CUtlBuffer::Spew( )
-{
-	SeekGet( CUtlBuffer::SEEK_HEAD, 0 );
-
-	char pTmpLine[1024];
-	while( IsValid() && GetBytesRemaining() )
-	{
-		V_memset( pTmpLine, 0, sizeof(pTmpLine) );
-		Get( pTmpLine, MIN( ( size_t )GetBytesRemaining(), sizeof(pTmpLine)-1 ) );
-		Msg( _T( "%s" ), pTmpLine );
-	}
-}
-
-#if !defined(_GAMECONSOLE)
-inline void CUtlBuffer::SwapCopy(  CUtlBuffer &other  )
-{
-	m_Get = other.m_Get;
-	m_Put = other.m_Put;
-	m_Error = other.m_Error;
-	m_Flags = other.m_Flags;
-	m_Reserved = other.m_Reserved;
-	m_nTab = other.m_nTab;
-	m_nMaxPut = other.m_nMaxPut;
-	m_nOffset = other.m_nOffset;
-	m_GetOverflowFunc = other.m_GetOverflowFunc;
-	m_PutOverflowFunc = other.m_PutOverflowFunc;
-	m_Byteswap = other.m_Byteswap;
-
-	m_Memory.Swap( other.m_Memory );
-}
-#endif
 
 inline void CUtlBuffer::CopyBuffer( const CUtlBuffer &buffer )
 {
@@ -1466,6 +1227,13 @@ inline void	CUtlBuffer::CopyBuffer( const void *pubData, int cubData )
 	{
 		Put( pubData, cubData );
 	}
+}
+
+inline void *CUtlBuffer::Detach()
+{
+	void *p = m_Memory.Detach();
+	Clear();
+	return p;
 }
 
 #endif // UTLBUFFER_H

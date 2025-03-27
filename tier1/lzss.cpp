@@ -54,7 +54,7 @@ void CLZSS::BuildHash( const unsigned char *pData )
 	lzss_list_t *pList;
 	lzss_node_t *pTarget;
 
-	intp targetindex = (intp)pData & ( m_nWindowSize - 1 );
+	int targetindex = (unsigned int)( uintp( pData ) & 0xFFFFFFFF ) & ( m_nWindowSize - 1 );
 	pTarget = &m_pHashTarget[targetindex];
 	if ( pTarget->pData )
 	{
@@ -294,63 +294,103 @@ unsigned int CLZSS::Uncompress( unsigned char *pInput, CUtlBuffer &buf )
 }
 */
 
-unsigned int CLZSS::SafeUncompress( const unsigned char *pInput, unsigned int inputSize, unsigned char *pOutput, unsigned int unBufSize )
+unsigned int CLZSS::SafeUncompress( const unsigned char *pInput, unsigned int inputlen, unsigned char *pOutput, unsigned int unBufSize )
 {
+	if ( inputlen <= sizeof( lzss_header_t ) )
+	{	// input buffer not long enough to fit the entire header, cannot dereference anything in the header
+		return 0;
+	}
+
 	unsigned int totalBytes = 0;
 	int cmdByte = 0;
 	int getCmdByte = 0;
 
 	unsigned int actualSize = GetActualSize( pInput );
-
-	if ( !actualSize ||
-		actualSize > unBufSize ||
-		inputSize <= sizeof( lzss_header_t ) )
+	if ( !actualSize )
+	{
+		// unrecognized
 		return 0;
+	}
 
-	const unsigned char *pInputEnd = pInput+inputSize-1;
-	const unsigned char *pOrigOutput = pOutput;
+	if ( actualSize > unBufSize )
+	{
+		return 0;
+	}
 
+	// safe to advance: upon entering the function we checked inputlen > sizeof( lzss_header_t )
 	pInput += sizeof( lzss_header_t );
+	inputlen -= sizeof( lzss_header_t );
 
+	// going into the input processing loop every time before
+	// the code attempts to dereference the input it should check:
+	//
+	//		if ( !inputlen ) return 0;
+	//		-- inputlen;
+	//
+	// also the way LZMA compression works is that it can request to copy
+	// bytes from a previous location in the output using relative offset
+	// that offset can also be malicious and point outside of readable memory
+	//
+#define SAFE_UNCOMPRESS_INPUT_VALIDATE_READABLE_AND_DECREMENT_REMAINING_LENGTH() \
+	if ( !inputlen ) return 0; \
+	-- inputlen;
+
+	//
+	// Run the decompression state machine
+	//
 	for ( ;; )
 	{
-		if ( !getCmdByte )
+		if ( !getCmdByte ) 
 		{
-			if( pInput > pInputEnd )
-				return 0;
-
-			cmdByte = *pInput++;
+			SAFE_UNCOMPRESS_INPUT_VALIDATE_READABLE_AND_DECREMENT_REMAINING_LENGTH();
+			cmdByte = *pInput++; // length decremented just above ^
 		}
 		getCmdByte = ( getCmdByte + 1 ) & 0x07;
 
 		if ( cmdByte & 0x01 )
 		{
-			if( pInput+1 > pInputEnd )
-				return 0;
+			SAFE_UNCOMPRESS_INPUT_VALIDATE_READABLE_AND_DECREMENT_REMAINING_LENGTH();
+			int position = *pInput++ << LZSS_LOOKSHIFT; // length decremented just above
 
-			int position = *pInput++ << LZSS_LOOKSHIFT;
-			position |= ( *pInput >> LZSS_LOOKSHIFT );
-			int count = ( *pInput++ & 0x0F ) + 1;
-			if ( count == 1 )
+			SAFE_UNCOMPRESS_INPUT_VALIDATE_READABLE_AND_DECREMENT_REMAINING_LENGTH();
+			position |= ( *pInput >> LZSS_LOOKSHIFT );	// peeking into the byte, consuming on next line
+			int count = ( *pInput++ & 0x0F ) + 1;		// this consumes the byte, length was decremented two lines above
+			if ( count == 1 ) 
+			{	// this indicates that we finished decompressing, assert that we
+				// used up all our source compressed buffer, but this is not fatal if we didn't
+				// the caller should probably be better with indicating buffer length?
+				Assert( !inputlen );
 				break;
-
+			}
 			unsigned char *pSource = pOutput - position - 1;
-
-			if ( totalBytes + count > unBufSize ||
-				pSource < pOrigOutput )
+			
+			// Validate that source pointer into previously uncompressed data is valid
+			if ( position < 0 )
+			{	// cannot read data that hasn't been written yet
 				return 0;
+			}
+			if ( ( (unsigned int) ( position ) ) >= totalBytes )
+			{	// this will step into memory located before the beginning of output buffer, invalid offset
+				return 0;
+			}
+
+			if ( totalBytes + count > unBufSize )
+			{	// this is a quick check outside the loop below to ensure that we can fit "count" output bytes
+				return 0;
+			}
 
 			for ( int i=0; i<count; i++ )
+			{
 				*pOutput++ = *pSource++;
-
+			}
 			totalBytes += count;
-		}
-		else
+		} 
+		else 
 		{
-			if ( totalBytes + 1 > unBufSize ||
-				pInput > pInputEnd )
+			if ( totalBytes + 1 > unBufSize )
 				return 0;
 
+			SAFE_UNCOMPRESS_INPUT_VALIDATE_READABLE_AND_DECREMENT_REMAINING_LENGTH();
 			*pOutput++ = *pInput++;
 			totalBytes++;
 		}
@@ -363,6 +403,8 @@ unsigned int CLZSS::SafeUncompress( const unsigned char *pInput, unsigned int in
 		Assert( 0 );
 		return 0;
 	}
+
+#undef SAFE_UNCOMPRESS_INPUT_VALIDATE_READABLE_AND_DECREMENT_REMAINING_LENGTH
 
 	return totalBytes;
 }
