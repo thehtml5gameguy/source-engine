@@ -73,6 +73,8 @@ CMDLPanel::CMDLPanel( vgui::Panel *pParent, const char *pName ) : BaseClass( pPa
 	m_DefaultHDREnvCubemap.Init( pCubemapTexture );
 
 	SetIdentityMatrix( m_RootMDL.m_MDLToWorld );
+	m_RootMDL.m_pStudioHdr = NULL;
+	m_RootMDL.m_unMdlCacheSerial = 0;
 	m_bDrawCollisionModel = false;
 	m_bWireFrame = false;
 	m_bGroundGrid = false;
@@ -85,6 +87,11 @@ CMDLPanel::CMDLPanel( vgui::Panel *pParent, const char *pName ) : BaseClass( pPa
 
 CMDLPanel::~CMDLPanel()
 {
+	if( m_RootMDL.m_pStudioHdr != NULL )
+	{
+		delete m_RootMDL.m_pStudioHdr;
+		m_RootMDL.m_pStudioHdr = NULL;
+	}
 	m_aMergeMDLs.Purge();
 	m_DefaultEnvCubemap.Shutdown( );
 	m_DefaultHDREnvCubemap.Shutdown();
@@ -147,6 +154,14 @@ void CMDLPanel::SetMDL( MDLHandle_t handle, void *pProxyData )
 {
 	m_RootMDL.m_MDL.SetMDL( handle );
 	m_RootMDL.m_MDL.m_pProxyData = pProxyData;
+
+	if( m_RootMDL.m_pStudioHdr != NULL )
+	{
+		delete m_RootMDL.m_pStudioHdr;
+	}
+
+	m_RootMDL.m_pStudioHdr = new CStudioHdr( g_pMDLCache->GetStudioHdr( m_RootMDL.m_MDL.GetMDL() ), g_pMDLCache );
+
 
 	Vector vecMins, vecMaxs;
 	GetMDLBoundingBox( &vecMins, &vecMaxs, handle, m_RootMDL.m_MDL.m_nSequence );
@@ -317,7 +332,7 @@ void CMDLPanel::DrawCollisionModel()
 	static color32 color = {255,0,0,0};
 
 	IVPhysicsKeyParser *pParser = g_pPhysicsCollision->VPhysicsKeyParserCreate( pCollide->pKeyValues );
-	CStudioHdr studioHdr( g_pMDLCache->GetStudioHdr( m_RootMDL.m_MDL.GetMDL() ), g_pMDLCache );
+	CStudioHdr* studioHdr = m_RootMDL.m_pStudioHdr;
 
 	matrix3x4_t pBoneToWorld[MAXSTUDIOBONES];
 	m_RootMDL.m_MDL.SetUpBones( m_RootMDL.m_MDLToWorld, MAXSTUDIOBONES, pBoneToWorld );
@@ -332,7 +347,7 @@ void CMDLPanel::DrawCollisionModel()
 			solid_t solid;
 
 			pParser->ParseSolid( &solid, NULL );
-			int boneIndex = Studio_BoneIndexByName( &studioHdr, solid.name );
+			int boneIndex = Studio_BoneIndexByName( studioHdr, solid.name );
 			Vector *outVerts;
 			int vertCount = g_pPhysicsCollision->CreateDebugMesh( pCollide->solids[solid.index], &outVerts );
 
@@ -400,6 +415,9 @@ void CMDLPanel::OnPaint3D()
 	if ( m_RootMDL.m_MDL.GetMDL() == MDLHANDLE_INVALID )
 		return;
 
+	// Draw the MDL
+	CStudioHdr* studioHdr = m_RootMDL.m_pStudioHdr;
+
 	// FIXME: Move this call into DrawModel in StudioRender
 	StudioRenderConfig_t oldStudioRenderConfig;
 	StudioRender()->GetCurrentConfig( oldStudioRenderConfig );
@@ -436,13 +454,10 @@ void CMDLPanel::OnPaint3D()
 		m_RootMDL.m_MDL.m_vecViewTarget = vecPosition;
 	}
 
-	// Draw the MDL
-	CStudioHdr studioHdr( g_pMDLCache->GetStudioHdr( m_RootMDL.m_MDL.GetMDL() ), g_pMDLCache );
-
 	SetupFlexWeights();
 
-	matrix3x4_t *pBoneToWorld = g_pStudioRender->LockBoneMatrices( studioHdr.numbones() );
-	m_RootMDL.m_MDL.SetUpBones( m_RootMDL.m_MDLToWorld, studioHdr.numbones(), pBoneToWorld, m_PoseParameters, m_SequenceLayers, m_nNumSequenceLayers );
+	matrix3x4_t *pBoneToWorld = g_pStudioRender->LockBoneMatrices( studioHdr->numbones() );
+	m_RootMDL.m_MDL.SetUpBones( m_RootMDL.m_MDLToWorld, studioHdr->numbones(), pBoneToWorld, m_PoseParameters, m_SequenceLayers, m_nNumSequenceLayers );
 	g_pStudioRender->UnlockBoneMatrices();
 
 	IMaterial* pOverrideMaterial = GetOverrideMaterial( m_RootMDL.m_MDL.GetMDL() );
@@ -473,7 +488,7 @@ void CMDLPanel::OnPaint3D()
 		if ( pStudioHdr != NULL )
 		{
 			CStudioHdr mergeHdr( pStudioHdr, g_pMDLCache );
-			m_aMergeMDLs[iMerge].m_MDL.SetupBonesWithBoneMerge( &mergeHdr, pMergeBoneToWorld, &studioHdr, pBoneToWorld, m_RootMDL.m_MDLToWorld );		
+			m_aMergeMDLs[iMerge].m_MDL.SetupBonesWithBoneMerge( &mergeHdr, pMergeBoneToWorld, studioHdr, pBoneToWorld, m_RootMDL.m_MDLToWorld );		
 
 			pOverrideMaterial = GetOverrideMaterial( m_aMergeMDLs[iMerge].m_MDL.GetMDL() );
 			if ( pOverrideMaterial != NULL ) 
@@ -489,7 +504,7 @@ void CMDLPanel::OnPaint3D()
 		}
 	}
 
-	RenderingRootModel( pRenderContext, &studioHdr, m_RootMDL.m_MDL.GetMDL(), pBoneToWorld );
+	RenderingRootModel( pRenderContext, studioHdr, m_RootMDL.m_MDL.GetMDL(), pBoneToWorld );
 
 	PostPaint3D( pRenderContext );
 
@@ -548,8 +563,7 @@ void CMDLPanel::SetPoseParameters( const float *pPoseParameters, int nCount )
 	}
 	else if ( m_RootMDL.m_MDL.GetMDL() != MDLHANDLE_INVALID )
 	{
-		CStudioHdr studioHdr( g_pMDLCache->GetStudioHdr( m_RootMDL.m_MDL.GetMDL() ), g_pMDLCache );
-		Studio_CalcDefaultPoseParameters( &studioHdr, m_PoseParameters, MAXSTUDIOPOSEPARAM );
+		Studio_CalcDefaultPoseParameters( m_RootMDL.m_pStudioHdr, m_PoseParameters, MAXSTUDIOPOSEPARAM );
 	}
 }
 
@@ -559,12 +573,17 @@ void CMDLPanel::SetPoseParameters( const float *pPoseParameters, int nCount )
 //-----------------------------------------------------------------------------
 bool CMDLPanel::SetPoseParameterByName( const char *pszName, float fValue )
 {
-	CStudioHdr studioHdr( g_pMDLCache->GetStudioHdr( m_RootMDL.m_MDL.GetMDL() ), g_pMDLCache );
-	int nPoseCount = studioHdr.GetNumPoseParameters();
+	CStudioHdr* studioHdr = m_RootMDL.m_pStudioHdr;
+	if(studioHdr == NULL)
+	{
+		return false;
+	}
+
+	int nPoseCount = studioHdr->GetNumPoseParameters();
 
 	for ( int i = 0; i < nPoseCount; ++i )
 	{
-		const mstudioposeparamdesc_t &Pose = studioHdr.pPoseParameter( i );
+		const mstudioposeparamdesc_t &Pose = studioHdr->pPoseParameter( i );
 		if ( V_strcasecmp( pszName, Pose.pszName() ) == 0 )
 		{
 			m_PoseParameters[ i ] = fValue;
@@ -612,10 +631,23 @@ void CMDLPanel::OnTick()
 	BaseClass::OnTick();
 	if ( m_RootMDL.m_MDL.GetMDL() != MDLHANDLE_INVALID )
 	{
+		ValidateMDLs();
+
 		m_RootMDL.m_MDL.m_flTime = ( GetAutoPlayTime() - m_RootMDL.m_flCycleStartTime );
 	
 		DoAnimationEvents();
 	}
+}
+
+void CMDLPanel::ValidateMDLs()
+{
+	uint32_t cacheSerial = vgui::ivgui()->GetMdlCacheSerial();
+	if(m_RootMDL.m_pStudioHdr != NULL && m_RootMDL.m_unMdlCacheSerial != cacheSerial)
+	{
+		m_RootMDL.m_pStudioHdr = new CStudioHdr( g_pMDLCache->GetStudioHdr( m_RootMDL.m_MDL.GetMDL() ), g_pMDLCache );;
+		m_RootMDL.m_unMdlCacheSerial = cacheSerial;
+	}
+
 }
 
 void CMDLPanel::Paint()
@@ -667,22 +699,26 @@ void CMDLPanel::Paint()
 //-----------------------------------------------------------------------------
 void CMDLPanel::DoAnimationEvents()
 {
-	CStudioHdr studioHdr( g_pMDLCache->GetStudioHdr( m_RootMDL.m_MDL.GetMDL() ), g_pMDLCache );
+	CStudioHdr* studioHdr = m_RootMDL.m_pStudioHdr;
+	if(studioHdr == NULL)
+	{
+		return;
+	}
 
 	// If we don't have any sequences, don't do anything
-	if ( studioHdr.GetNumSeq() < 1 )
+	if ( studioHdr->GetNumSeq() < 1 )
 	{
 		Assert( studioHdr.GetNumSeq() >= 1 );
 		return;
 	}
 
-	DoAnimationEvents( &studioHdr, m_RootMDL.m_MDL.m_nSequence, m_RootMDL.m_MDL.m_flTime, false, &m_EventState );
+	DoAnimationEvents( studioHdr, m_RootMDL.m_MDL.m_nSequence, m_RootMDL.m_MDL.m_flTime, false, &m_EventState );
 
 	for ( int i = 0; i < m_nNumSequenceLayers; ++i )
 	{
 		float flTime = m_RootMDL.m_MDL.m_flTime - m_SequenceLayers[ i ].m_flCycleBeganAt;
 		//Plat_DebugString( CFmtStr("Animation: time = %f, started = %f, delta = %f\n",m_RootMDL.m_MDL.m_flTime,m_SequenceLayers[ i ].m_flCycleBeganAt,flTime ) );
-		DoAnimationEvents( &studioHdr, m_SequenceLayers[ i ].m_nSequenceIndex, flTime, m_SequenceLayers[ i ].m_bNoLoop, &m_SequenceLayerEventState[ i ] );
+		DoAnimationEvents( studioHdr, m_SequenceLayers[ i ].m_nSequenceIndex, flTime, m_SequenceLayers[ i ].m_bNoLoop, &m_SequenceLayerEventState[ i ] );
 	}
 }
 
