@@ -3,6 +3,13 @@
  Discord: [![Discord Server](https://img.shields.io/discord/672055862608658432.svg)](https://discord.gg/hZRB7WMgGw)
  
 ## Allows you to run the new source sdk on nillerusr's source-engine.
+You can also compile the sdk using this engine's static libraries, except for
+- `gcsdk_sdk.a` Needs to be backported from csgo probably.
+- `mathlib.a` Build by the sdk itself.
+- `raytrace.a` Build by the sdk itself.
+- `tier1.a` Build by the sdk itself.
+- `vgui_controls.a` Build by the sdk itself
+To do this, copy the needed libraries from the `build/` directory to `src/lib/public/linux64/` in the sdk, then rename them so they don't have the `lib` prefix.
 
 # How to run
 You need to copy or simlink these things from the original sdk:
@@ -15,6 +22,7 @@ You also need to rename/symlink a few files:
 - `libServerBrowser.so` to `ServerBrowser.so`
 
 Then edit the gameinfo in your mod_tf directory to use `all_source_engine_paths` instead of `appid_*`.
+
 ##### Build in debug mode, release crashes on class selection for some reason.
 
 Information from [wikipedia](https://wikipedia.org/wiki/Source_(game_engine)):
