@@ -85,6 +85,8 @@ jobs:
         run: ./waf configure ${{ matrix.flags }} $WAF_FLAGS
       - name: Build macos-amd64
         run: ./waf install --strip-to-file
+      - name: Test
+        run: echo Yes
       - name: Upload build
         uses: actions/upload-artifact@v3
         with:
